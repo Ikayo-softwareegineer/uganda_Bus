@@ -3,5 +3,5 @@ services:
     name: uganda-bus-frontend
     runtime: static
     rootDir: php-rebuild
-    buildCommand: ""
+    buildCommand: echo "No build required"
     staticPublishPath: .
