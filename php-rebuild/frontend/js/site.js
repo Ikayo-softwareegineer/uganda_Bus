@@ -627,7 +627,7 @@ function initRegisterPage() {
       return;
     }
 
-    const result = await api('register.php', { method: 'POST', body: { name, email, password } });
+    const result = await api('register.php', { method: ', body: { name, email, password } });
     if (!result.ok) {
       alert(result.data.message || 'Registration failed.');
       return;
