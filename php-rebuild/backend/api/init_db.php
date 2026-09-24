@@ -57,6 +57,12 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS bookings (
     FOREIGN KEY(trip_id) REFERENCES trips(id)
 );');
 
+// Link each booking to the user who made it (added for existing databases too)
+$bookingColumns = array_column($pdo->query('PRAGMA table_info(bookings)')->fetchAll(), 'name');
+if (!in_array('user_id', $bookingColumns)) {
+    $pdo->exec('ALTER TABLE bookings ADD COLUMN user_id INTEGER REFERENCES users(id)');
+}
+
 $pdo->exec('CREATE TABLE IF NOT EXISTS admin_stats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     label TEXT NOT NULL,
@@ -103,22 +109,29 @@ if ($countTrips == 0) {
 
     $insertTrip = $pdo->prepare('INSERT INTO trips (route_id, vehicle_id, departure_time, arrival_time, price_ugx, available_seats, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
 
-    foreach ($routes as $index => $route) {
-        $vehicle = $vehicles[$index % count($vehicles)];
-        $dep = (clone $today)->modify('+' . ($index + 1) . ' day')->setTime(7 + ($index % 4), 30 + ($index * 5));
-        $arr = (clone $dep)->modify('+' . floor($route['distance_km'] / 90) . ' hours');
+    // One trip per route per day, for the next 7 days (today included)
+    for ($day = 0; $day < 7; $day++) {
+        foreach ($routes as $index => $route) {
+            $vehicle = $vehicles[$index % count($vehicles)];
+            $dep = (clone $today)->modify('+' . $day . ' day')->setTime(7 + ($index % 4), 30);
+            $arr = (clone $dep)->modify('+' . round($route['distance_km'] / 55 * 60) . ' minutes'); // ~55 km/h average
 
-        $insertTrip->execute([
-            $route['id'],
-            $vehicle['id'],
-            $dep->format('Y-m-d H:i:s'),
-            $arr->format('Y-m-d H:i:s'),
-            $route['price_ugx'],
-            $vehicle['total_seats'],
-            'SCHEDULED'
-        ]);
+            $insertTrip->execute([
+                $route['id'],
+                $vehicle['id'],
+                $dep->format('Y-m-d H:i:s'),
+                $arr->format('Y-m-d H:i:s'),
+                $route['price_ugx'],
+                $vehicle['total_seats'],
+                'SCHEDULED'
+            ]);
+        }
     }
 }
+
+// Default admin account (password is stored hashed, never as plain text)
+$insertAdmin = $pdo->prepare('INSERT OR IGNORE INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)');
+$insertAdmin->execute(['Admin', 'admin@ugandabus.com', '', password_hash('Admin@123', PASSWORD_DEFAULT), 'ADMIN']);
 
 $pdo->exec('DELETE FROM admin_stats');
 $pdo->exec('INSERT INTO admin_stats (label, value) VALUES ("Trips", (SELECT COUNT(*) FROM trips))');

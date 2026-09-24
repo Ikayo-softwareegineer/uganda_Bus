@@ -10,11 +10,10 @@ $destination = trim($_GET['destination'] ?? '');
 $date = trim($_GET['date'] ?? '');
 $passengers = (int)($_GET['passengers'] ?? 1);
 
-if ($origin === '' || $destination === '') {
-    jsonResponse(['success' => false, 'message' => 'Origin and destination are required'], 400);
-}
+$limit = (int)($_GET['limit'] ?? 0);
 
-if (strtolower($origin) === strtolower($destination)) {
+// Origin and destination are optional: with none, all upcoming trips are listed (home page)
+if ($origin !== '' && strtolower($origin) === strtolower($destination)) {
     jsonResponse(['success' => false, 'message' => 'Origin and destination cannot be the same'], 400);
 }
 
@@ -24,23 +23,35 @@ $sql = "
     FROM trips t
     JOIN routes r ON r.id = t.route_id
     JOIN vehicles v ON v.id = t.vehicle_id
-    WHERE r.origin = :origin
-      AND r.destination = :destination
-      AND t.available_seats >= :passengers
+    WHERE t.available_seats >= :passengers
 ";
 
-$params = [
-    ':origin' => $origin,
-    ':destination' => $destination,
-    ':passengers' => $passengers
-];
+$params = [':passengers' => $passengers];
+
+if ($origin !== '') {
+    $sql .= ' AND r.origin = :origin ';
+    $params[':origin'] = $origin;
+}
+
+if ($destination !== '') {
+    $sql .= ' AND r.destination = :destination ';
+    $params[':destination'] = $destination;
+}
 
 if ($date !== '') {
     $sql .= " AND DATE(t.departure_time) = :date ";
     $params[':date'] = $date;
 }
 
+if ($date === '') {
+    $sql .= " AND t.departure_time >= DATETIME('now', 'localtime') ";
+}
+
 $sql .= ' ORDER BY t.departure_time ASC';
+
+if ($limit > 0) {
+    $sql .= ' LIMIT ' . $limit;
+}
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
