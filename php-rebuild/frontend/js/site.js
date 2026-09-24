@@ -525,9 +525,23 @@ function renderAdminPage() {
   `).join('') : '<tr><td colspan="4">No bookings yet.</td></tr>';
 }
 
+// Validation rules for login/register
+const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MIN_PASSWORD_LENGTH = 6;
+
 function initLoginPage() {
   const form = document.getElementById('loginForm');
   if (!form) return;
+  
+  const successMsg = document.getElementById('registerSuccess');
+  if (successMsg && getParam('registered') === '1') {
+    successMsg.classList.remove('hidden');
+  }
+
+  if (getParam('registered') === '1') {
+    alert('Account created successfully. Please log in with your email and password.');
+  }
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -539,6 +553,16 @@ function initLoginPage() {
       return;
     }
 
+    if (!EMAIL_PATTERN.test(email)) {
+      alert('Please enter a valid email address (e.g. you@example.com).');
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      alert(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+
     const isAdmin = email.toLowerCase() === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password;
     if (email.toLowerCase().includes('admin') && !isAdmin) {
       alert('Invalid admin email or password.');
@@ -546,8 +570,18 @@ function initLoginPage() {
     }
 
     const state = getState();
+    let account = null;
+    if (!isAdmin) {
+      const users = state.users || [];
+      account = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      if (!account || account.password !== password) {
+        alert('Invalid email or password. If you are new, please register first.');
+        return;
+      }
+    }
+
     state.user = {
-      name: email.split('@')[0],
+      name: isAdmin ? 'Admin' : account.name,
       email,
       role: isAdmin ? 'admin' : 'customer'
     };
@@ -573,11 +607,35 @@ function initRegisterPage() {
       return;
     }
 
+    if (!NAME_PATTERN.test(name)) {
+      alert('Name should contain letters only (no numbers or symbols).');
+      return;
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+      alert('Please enter a valid email address (e.g. you@example.com).');
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      alert(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+
     const state = getState();
-    state.user = { name, email, role: 'customer' };
+    state.users = state.users || [];
+    const exists = state.users.some((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (exists || email.toLowerCase() === ADMIN_CREDENTIALS.email) {
+      alert('An account with this email already exists. Please log in.');
+      return;
+    }
+
+    // Save the account but do NOT log the user in – they must log in with these credentials
+    state.users.push({ name, email, password });
+    state.user = null;
     saveState(state);
 
-    window.location.href = 'index.html';
+    window.location.href = 'login.html?registered=1';
   });
 }
 

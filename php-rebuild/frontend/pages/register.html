@@ -27,7 +27,7 @@
         <form id="registerForm" class="auth-form">
           <label>
             <span>Full name</span>
-            <input id="registerName" type="text" placeholder="Your full name" required />
+            <input id="registerName" type="text" placeholder="Your full name" pattern="[A-Za-z][A-Za-z\s'.\-]*" title="Letters only (no numbers or symbols)" required />
           </label>
           <label>
             <span>Email</span>
@@ -35,7 +35,7 @@
           </label>
           <label>
             <span>Password</span>
-            <input id="registerPassword" type="password" placeholder="Create a password" required />
+            <input id="registerPassword" type="password" placeholder="At least 6 characters" minlength="6" required />
           </label>
           <button class="primary-btn full" type="submit">Register</button>
         </form>
@@ -46,4 +46,3 @@
     <script src="../js/site.js"></script>
   </body>
 </html>
-
