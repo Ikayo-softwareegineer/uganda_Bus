@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: uganda-bus-frontend
+    runtime: static
+    rootDir: php-rebuild
+    buildCommand: ""
+    staticPublishPath: .

@@ -39,3 +39,13 @@ php backend/api/init_db.php
 ```
 
 Then open the app in the browser.
+
+## Deploy the frontend on Render
+
+This repository includes a `render.yaml` Blueprint for deploying the frontend as a Render Static Site.
+
+1. In Render, choose **New > Blueprint** and connect this repository.
+2. Select the `main` branch.
+3. Render will use `php-rebuild` as the site root and publish the frontend automatically.
+
+The current browser booking flow uses localStorage, so bookings are stored per browser. The PHP API and SQLite database are not executed by a Static Site. To use those backend APIs in production, deploy the PHP backend separately with a PHP-capable Docker service and configure the frontend API URLs.
