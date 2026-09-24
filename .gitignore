@@ -22,3 +22,5 @@ build
 
 # Temporary database files
 *.db-journal
+# Local SQLite database (created by init_db.php)
+php-rebuild/backend/api/data/
