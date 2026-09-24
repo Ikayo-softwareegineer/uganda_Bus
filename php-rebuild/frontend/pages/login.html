@@ -24,6 +24,7 @@
       <div class="auth-card">
         <h2>Welcome back</h2>
         <p>Sign in to continue your trip booking.</p>
+                <div id="registerSuccess" class="alert success hidden">Account created successfully. Please log in.</div>
         <form id="loginForm" class="auth-form">
           <label>
             <span>Email</span>
@@ -31,7 +32,7 @@
           </label>
           <label>
             <span>Password</span>
-            <input id="loginPassword" type="password" placeholder="Password" required />
+            <input id="loginPassword" type="password" placeholder="Password" minlength="6" required />
           </label>
           <button class="primary-btn full" type="submit">Login</button>
         </form>
@@ -42,4 +43,3 @@
     <script src="../js/site.js"></script>
   </body>
 </html>
-
