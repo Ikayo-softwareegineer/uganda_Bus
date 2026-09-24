@@ -1,0 +1,45 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Uganda Bus</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body data-page="login">
+    <header class="topbar">
+      <div class="container navbar">
+        <div class="brand">
+          <span class="brand-mark">UB</span>
+          <span>Uganda Bus</span>
+        </div>
+        <div class="nav-actions">
+          <a class="link-btn" href="index.html">Home</a>
+          <a class="primary-btn" href="register.html">Create account</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="auth-page">
+      <div class="auth-card">
+        <h2>Welcome back</h2>
+        <p>Sign in to continue your trip booking.</p>
+        <form id="loginForm" class="auth-form">
+          <label>
+            <span>Email</span>
+            <input id="loginEmail" type="email" placeholder="you@example.com" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="loginPassword" type="password" placeholder="Password" required />
+          </label>
+          <button class="primary-btn full" type="submit">Login</button>
+        </form>
+        <p class="auth-switch">Need an account? <a href="register.html">Register here</a></p>
+      </div>
+    </main>
+
+    <script src="../js/site.js"></script>
+  </body>
+</html>
+

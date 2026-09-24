@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkout | Uganda Bus</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body data-page="checkout">
+    <header class="topbar">
+      <div class="container navbar">
+        <div class="brand">
+          <span class="brand-mark">UB</span>
+          <span>Uganda Bus</span>
+        </div>
+        <div class="nav-actions">
+          <a class="link-btn" href="index.html">Home</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="section">
+      <div class="container layout">
+        <div class="checkout-panel wide-panel">
+          <h2>Passenger details</h2>
+          <div class="form-stack">
+            <input id="customerName" type="text" placeholder="Full name" />
+            <input id="customerPhone" type="text" placeholder="Phone number" />
+            <input id="customerEmail" type="email" placeholder="Email address" />
+            <select id="paymentMethod">
+              <option value="MTN_MOMO">MTN Mobile Money</option>
+              <option value="AIRTEL_MONEY">Airtel Money</option>
+              <option value="VISA_CARD">Visa Card</option>
+              <option value="CASH_AT_STATION">Pay cash at station</option>
+            </select>
+            <button id="confirmBookingBtn" class="primary-btn" type="button">Confirm booking</button>
+          </div>
+        </div>
+
+        <aside class="checkout-panel">
+          <h3>Booking summary</h3>
+          <ul class="summary-list">
+            <li><span>Route</span><strong id="summaryRoute">-</strong></li>
+            <li><span>Departure</span><strong id="summaryDeparture">-</strong></li>
+            <li><span>Passengers</span><strong id="summaryPassengers">0</strong></li>
+            <li><span>Selected seats</span><strong id="summarySeats">-</strong></li>
+          </ul>
+          <div class="summary-total">
+            <span>Total</span>
+            <span id="summaryTotal">UGX 0</span>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script src="../js/site.js"></script>
+  </body>
+</html>
+

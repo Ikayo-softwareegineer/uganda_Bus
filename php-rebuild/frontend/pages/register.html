@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register | Uganda Bus</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body data-page="register">
+    <header class="topbar">
+      <div class="container navbar">
+        <div class="brand">
+          <span class="brand-mark">UB</span>
+          <span>Uganda Bus</span>
+        </div>
+        <div class="nav-actions">
+          <a class="link-btn" href="index.html">Home</a>
+          <a class="primary-btn" href="login.html">Login</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="auth-page">
+      <div class="auth-card">
+        <h2>Create your account</h2>
+        <p>Register to book bus tickets and manage your travel plans.</p>
+        <form id="registerForm" class="auth-form">
+          <label>
+            <span>Full name</span>
+            <input id="registerName" type="text" placeholder="Your full name" required />
+          </label>
+          <label>
+            <span>Email</span>
+            <input id="registerEmail" type="email" placeholder="you@example.com" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="registerPassword" type="password" placeholder="Create a password" required />
+          </label>
+          <button class="primary-btn full" type="submit">Register</button>
+        </form>
+        <p class="auth-switch">Already have an account? <a href="login.html">Login here</a></p>
+      </div>
+    </main>
+
+    <script src="../js/site.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,54 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | Uganda Bus</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body data-page="admin">
+    <header class="topbar">
+      <div class="container navbar">
+        <div class="brand">
+          <span class="brand-mark">UB</span>
+          <span>Uganda Bus</span>
+        </div>
+        <div class="nav-actions">
+          <a class="link-btn" href="index.html">Home</a>
+          <a class="primary-btn" href="login.html" data-logout>Logout</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="section">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Operations</span>
+            <h2 class="section-title">Admin dashboard</h2>
+          </div>
+        </div>
+
+        <div id="adminStats" class="admin-grid"></div>
+
+        <div class="table-card">
+          <h3>Recent bookings</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Ref</th>
+                <th>Route</th>
+                <th>Seats</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="adminBookings"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <script src="../js/site.js"></script>
+  </body>
+</html>
+

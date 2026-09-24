@@ -1,0 +1,213 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Uganda Intercity Bus Booking</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body data-page="home">
+    <header class="topbar">
+      <div class="container navbar">
+        <div class="brand">
+          <span class="brand-mark">UB</span>
+          <span>Uganda Bus</span>
+        </div>
+
+        <div class="nav-actions">
+          <a class="link-btn" href="index.html">Home</a>
+          <a class="link-btn" href="search.html">Trips</a>
+          <a class="link-btn" href="login.html">Customer Care</a>
+          <a class="link-btn" href="login.html">Login</a>
+          <a class="primary-btn" href="login.html">Book now</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <div class="hero-panel">
+            <div class="hero-content">
+              <h1>Travel across Uganda with ease</h1>
+              <p>
+                Book reliable intercity bus journeys, choose your seat, pay securely,
+                and receive your ticket confirmation in minutes.
+              </p>
+
+              <div class="feature-row">
+                <span class="feature-pill">Flexible booking</span>
+                <span class="feature-pill">Comfortable trips</span>
+                <span class="feature-pill">Verified ticketing</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="search-card">
+            <div class="trip-switch">
+              <label class="option"><input type="radio" name="tripType" value="ONE_WAY" checked /> One Way</label>
+              <label class="option"><input type="radio" name="tripType" value="ROUND_TRIP" /> Round Trip</label>
+            </div>
+
+            <form id="searchForm">
+              <div class="search-grid">
+                <div class="field">
+                  <label for="origin">From</label>
+                  <select id="origin" name="origin" required></select>
+                </div>
+
+                <div class="field">
+                  <label for="destination">To</label>
+                  <select id="destination" name="destination" required></select>
+                </div>
+
+                <div class="field">
+                  <label for="date">Date</label>
+                  <input id="date" name="date" type="date" required />
+                </div>
+
+                <div class="field wide">
+                  <label for="passengers">Passengers</label>
+                  <select id="passengers" name="passengers">
+                    <option value="1">1 passenger</option>
+                    <option value="2">2 passengers</option>
+                    <option value="3">3 passengers</option>
+                    <option value="4">4 passengers</option>
+                  </select>
+                </div>
+
+                <div class="field wide">
+                  <button class="search-btn" type="submit">Search trips</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Popular routes</span>
+              <h2 class="section-title">Available trips</h2>
+            </div>
+            <a class="ghost-btn" href="search.html">View all schedules</a>
+          </div>
+          <div id="results" class="results-grid"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Uganda destinations</span>
+              <h2 class="section-title">Explore the country</h2>
+            </div>
+          </div>
+
+          <div class="destination-grid">
+            <article class="destination-card">
+              <img src="../images/mbarara.jpg" alt="Mbarara city" />
+              <div class="destination-info">
+                <h3>Mbarara</h3>
+                <p>Rolling hills and vibrant city life.</p>
+              </div>
+            </article>
+
+            <article class="destination-card">
+              <img src="../images/fort-portal.jpg" alt="Fort Portal city" />
+              <div class="destination-info">
+                <h3>Fort Portal</h3>
+                <p>Scenic roads to the beautiful western highlands.</p>
+              </div>
+            </article>
+
+            <article class="destination-card">
+              <img src="../images/gulu.jpg" alt="Gulu city" />
+              <div class="destination-info">
+                <h3>Gulu</h3>
+                <p>Northbound routes with comfort and reliability.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container layout">
+          <div>
+            <h2 class="section-title">Seat selection</h2>
+            <div id="seatSection" class="seat-map hidden">
+              <div class="driver-area">Driver</div>
+              <div id="seatMap" class="seats"></div>
+            </div>
+          </div>
+
+          <aside class="checkout-panel">
+            <h3>Booking summary</h3>
+            <div id="bookingAlert"></div>
+            <ul class="summary-list">
+              <li><span>Route</span><strong id="summaryRoute">-</strong></li>
+              <li><span>Departure</span><strong id="summaryDeparture">-</strong></li>
+              <li><span>Passengers</span><strong id="summaryPassengers">0</strong></li>
+              <li><span>Selected seats</span><strong id="summarySeats">-</strong></li>
+            </ul>
+
+            <div class="form-stack">
+              <input id="customerName" type="text" placeholder="Full name" />
+              <input id="customerPhone" type="text" placeholder="Phone number" />
+              <input id="customerEmail" type="email" placeholder="Email address" />
+              <select id="paymentMethod">
+                <option value="MTN_MOMO">MTN Mobile Money</option>
+                <option value="AIRTEL_MONEY">Airtel Money</option>
+                <option value="VISA_CARD">Visa Card</option>
+                <option value="CASH_AT_STATION">Pay cash at station</option>
+              </select>
+              <button id="bookBtn" class="primary-btn" type="button">Find trips to book</button>
+            </div>
+
+            <div class="summary-total">
+              <span>Total</span>
+              <span id="summaryTotal">UGX 0</span>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section trust-section">
+        <div class="container">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Why travelers choose us</span>
+              <h2 class="section-title">Travel with confidence</h2>
+            </div>
+          </div>
+
+          <div class="trust-grid">
+            <div class="info-card">
+              <div class="icon-wrap">Safety</div>
+              <h3>Verified routes</h3>
+              <p>Every trip is tracked for route reliability, safety, and timely departures.</p>
+            </div>
+            <div class="info-card">
+              <div class="icon-wrap">Payment</div>
+              <h3>Easy payment</h3>
+              <p>Choose mobile money, Airtel money, or card payments in a few taps.</p>
+            </div>
+            <div class="info-card">
+              <div class="icon-wrap">Ticket</div>
+              <h3>Instant confirmation</h3>
+              <p>Get a booking reference immediately and keep track of your ticket details.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <script src="../js/site.js"></script>
+  </body>
+</html>
+

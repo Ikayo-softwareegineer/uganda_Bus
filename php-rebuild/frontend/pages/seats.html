@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Seats | Uganda Bus</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body data-page="seats">
+    <header class="topbar">
+      <div class="container navbar">
+        <div class="brand">
+          <span class="brand-mark">UB</span>
+          <span>Uganda Bus</span>
+        </div>
+        <div class="nav-actions">
+          <a class="link-btn" href="index.html">Home</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="section">
+      <div class="container layout">
+        <div>
+          <h2 class="section-title">Seat selection</h2>
+          <div id="seatSection" class="seat-map hidden">
+            <div class="driver-area">Driver</div>
+            <div id="seatMap" class="seats"></div>
+          </div>
+        </div>
+
+        <aside class="checkout-panel">
+          <h3>Booking summary</h3>
+          <ul class="summary-list">
+            <li><span>Route</span><strong id="summaryRoute">-</strong></li>
+            <li><span>Departure</span><strong id="summaryDeparture">-</strong></li>
+            <li><span>Passengers</span><strong id="summaryPassengers">0</strong></li>
+            <li><span>Selected seats</span><strong id="summarySeats">-</strong></li>
+          </ul>
+          <div class="summary-total">
+            <span>Total</span>
+            <span id="summaryTotal">UGX 0</span>
+          </div>
+          <button id="continueBookingBtn" class="primary-btn full" type="button">Continue to checkout</button>
+        </aside>
+      </div>
+    </main>
+
+    <script src="../js/site.js"></script>
+  </body>
+</html>
+
