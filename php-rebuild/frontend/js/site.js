@@ -1,85 +1,79 @@
-const DEFAULT_TRIPS = [
-  {
-    id: 'TRIP-101',
-    origin: 'Kampala',
-    destination: 'Mbarara',
-    departureTime: '2026-09-20T07:30:00',
-    arrivalTime: '2026-09-20T13:00:00',
-    operator: 'Great Link',
-    price: 28000,
-    seatsAvailable: 12
-  },
-  {
-    id: 'TRIP-102',
-    origin: 'Kampala',
-    destination: 'Gulu',
-    departureTime: '2026-09-21T08:00:00',
-    arrivalTime: '2026-09-21T15:15:00',
-    operator: 'Pearl Travel',
-    price: 36000,
-    seatsAvailable: 9
-  },
-  {
-    id: 'TRIP-103',
-    origin: 'Kampala',
-    destination: 'Jinja',
-    departureTime: '2026-09-22T09:00:00',
-    arrivalTime: '2026-09-22T11:00:00',
-    operator: 'Coastal Express',
-    price: 16000,
-    seatsAvailable: 15
-  },
-  {
-    id: 'TRIP-104',
-    origin: 'Kampala',
-    destination: 'Fort Portal',
-    departureTime: '2026-09-23T07:00:00',
-    arrivalTime: '2026-09-23T12:30:00',
-    operator: 'Roadmaster',
-    price: 26000,
-    seatsAvailable: 7
-  },
-  {
-    id: 'TRIP-105',
-    origin: 'Mbarara',
-    destination: 'Kabale',
-    departureTime: '2026-09-24T06:30:00',
-    arrivalTime: '2026-09-24T10:45:00',
-    operator: 'Mountain Route',
-    price: 22000,
-    seatsAvailable: 10
-  },
-  {
-    id: 'TRIP-106',
-    origin: 'Gulu',
-    destination: 'Lira',
-    departureTime: '2026-09-25T08:30:00',
-    arrivalTime: '2026-09-25T11:15:00',
-    operator: 'Northline Bus',
-    price: 18000,
-    seatsAvailable: 18
-  }
-];
+// ============================================================
+// Uganda Bus - frontend logic (client)
+// All data now comes from the PHP API (server) and SQLite database.
+// localStorage only remembers WHO is logged in, so pages can show
+// the right links; the server checks the real login on every request.
+// ============================================================
 
+const API = '../../backend/api/';
 const STORAGE_KEY = 'ugandaBusBooking';
-const ADMIN_CREDENTIALS = {
-  email: 'admin@ugandabus.com',
-  password: 'Admin@123'
-};
+
+// ---------- Talking to the server ----------
+
+async function api(path, options = {}) {
+  const settings = {
+    credentials: 'same-origin', // send the PHP session cookie
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  };
+  if (settings.body && typeof settings.body !== 'string') {
+    settings.body = JSON.stringify(settings.body);
+  }
+
+  let response;
+  try {
+    response = await fetch(API + path, settings);
+  } catch (error) {
+    alert('Cannot reach the server. Make sure Apache (XAMPP) is running.');
+    throw error;
+  }
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = { success: false, message: 'Unexpected server response.' };
+  }
+
+  // Server says we are not logged in any more -> go to login
+  if (response.status === 401 && !path.startsWith('login') && !path.startsWith('register')) {
+    setCurrentUser(null);
+    const redirect = window.location.pathname.split('/').pop() + window.location.search;
+    window.location.href = `login.html?redirect=${encodeURIComponent(redirect)}`;
+  }
+
+  return { ok: response.ok && data.success !== false, status: response.status, data };
+}
+
+// Convert a trip row from the database into the shape the pages use
+function normalizeTrip(row) {
+  return {
+    id: row.id,
+    origin: row.origin,
+    destination: row.destination,
+    departureTime: String(row.departure_time).replace(' ', 'T'),
+    arrivalTime: String(row.arrival_time).replace(' ', 'T'),
+    operator: row.operator_name,
+    price: Number(row.price_ugx),
+    seatsAvailable: Number(row.available_seats),
+    totalSeats: Number(row.total_seats || 16),
+    bookedSeats: row.booked_seats || []
+  };
+}
+
+async function fetchTrip(id) {
+  const result = await api(`trip.php?id=${encodeURIComponent(id)}`);
+  return result.ok ? normalizeTrip(result.data.trip) : null;
+}
+
+// ---------- Who is logged in (cached in the browser) ----------
 
 function getState() {
-  const existing = localStorage.getItem(STORAGE_KEY);
-  if (existing) return JSON.parse(existing);
-
-  const initial = {
-    user: null,
-    bookings: [],
-    trips: DEFAULT_TRIPS,
-    authMode: 'login'
-  };
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-  return initial;
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { user: null };
+  } catch (error) {
+    return { user: null };
+  }
 }
 
 function saveState(state) {
@@ -88,6 +82,10 @@ function saveState(state) {
 
 function getCurrentUser() {
   return getState().user;
+}
+
+function setCurrentUser(user) {
+  saveState({ user });
 }
 
 function getRoleHome(role) {
@@ -121,15 +119,16 @@ function requireRole(page) {
 
 function initLogout() {
   document.querySelectorAll('[data-logout]').forEach((link) => {
-    link.addEventListener('click', (event) => {
+    link.addEventListener('click', async (event) => {
       event.preventDefault();
-      const state = getState();
-      state.user = null;
-      saveState(state);
+      await api('logout.php', { method: 'POST' }).catch(() => {});
+      setCurrentUser(null);
       window.location.href = 'login.html';
     });
   });
 }
+
+// ---------- Formatting helpers ----------
 
 function currency(value) {
   return new Intl.NumberFormat('en-UG', {
@@ -150,7 +149,7 @@ function paymentLabel(payment) {
 }
 
 function dateLabel(value) {
-  return new Date(value).toLocaleString([], {
+  return new Date(String(value).replace(' ', 'T')).toLocaleString([], {
     dateStyle: 'medium',
     timeStyle: 'short'
   });
@@ -161,20 +160,16 @@ function getParam(name) {
   return params.get(name) || '';
 }
 
-function getTripById(id) {
-  const state = getState();
-  return state.trips.find((trip) => trip.id === id) || null;
-}
+// ---------- Home page ----------
 
-function populateRouteSelects() {
-  const state = getState();
-  const origins = [...new Set(state.trips.map((trip) => trip.origin))];
-  const destinations = [...new Set(state.trips.map((trip) => trip.destination))];
-
+async function populateRouteSelects() {
   const originSelect = document.getElementById('origin');
   const destinationSelect = document.getElementById('destination');
-
   if (!originSelect || !destinationSelect) return;
+
+  const result = await api('routes.php');
+  if (!result.ok) return;
+  const { origins, destinations } = result.data;
 
   originSelect.innerHTML = ['<option value="">Select origin</option>']
     .concat(origins.map((origin) => `<option value="${origin}">${origin}</option>`))
@@ -222,11 +217,18 @@ function initHomePage() {
       return;
     }
 
+    if (origin === destination) {
+      alert('Origin and destination cannot be the same.');
+      return;
+    }
+
     window.location.href = `search.html?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${encodeURIComponent(date)}&passengers=${encodeURIComponent(passengers)}`;
   });
 }
 
-function renderSearchResults() {
+// ---------- Search results (home "Available trips" + search.html) ----------
+
+async function renderSearchResults() {
   const resultsContainer = document.getElementById('results');
   if (!resultsContainer) return;
 
@@ -234,28 +236,23 @@ function renderSearchResults() {
   const destination = getParam('destination');
   const date = getParam('date');
   const passengers = Number(getParam('passengers') || 1);
+  const isHome = document.body.dataset.page === 'home';
 
-  const state = getState();
-  let trips = state.trips.filter((trip) => {
-    const matchesOrigin = !origin || trip.origin === origin;
-    const matchesDestination = !destination || trip.destination === destination;
-    const matchesDate = !date || trip.departureTime.slice(0, 10) === date;
-    const hasSeats = trip.seatsAvailable >= passengers;
-    const isScheduled = trip.status !== 'CANCELLED';
-    return isScheduled && matchesOrigin && matchesDestination && matchesDate && hasSeats;
-  });
+  const query = new URLSearchParams({ origin, destination, date, passengers });
+  if (isHome) query.set('limit', '6');
+
+  const result = await api(`search.php?${query.toString()}`);
+  const trips = result.ok ? result.data.trips.map(normalizeTrip) : [];
 
   if (!trips.length) {
     resultsContainer.innerHTML = `
       <div class="empty-card">
         <h3>No trips found</h3>
-        <p>Try another date or route.</p>
+        <p>${result.ok ? 'Try another date or route.' : (result.data.message || 'Try another date or route.')}</p>
       </div>
     `;
     return;
   }
-
-  trips = trips.sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime));
 
   resultsContainer.innerHTML = trips.map((trip) => `
     <article class="trip-card">
@@ -286,50 +283,37 @@ function renderSearchResults() {
   `).join('');
 }
 
-function renderSeatSelection() {
+// ---------- Seat selection ----------
+
+let seatTrip = null; // the trip loaded from the server for seats.html
+
+function seatLabels(totalSeats) {
+  const labels = [];
+  const rows = Math.ceil(totalSeats / 4);
+  for (let row = 1; row <= rows; row++) {
+    ['A', 'B', 'C', 'D'].forEach((col) => {
+      if (labels.length < totalSeats) labels.push(`${row}${col}`);
+    });
+  }
+  return labels;
+}
+
+async function renderSeatSelection() {
   const tripId = getParam('tripId');
   const passengers = Number(getParam('passengers') || 1);
-  const trip = getTripById(tripId);
-  const seatMap = document.getElementById('seatMap');
   const seatContainer = document.getElementById('seatSection');
+  if (!tripId || !seatContainer) return;
 
-  if (!trip || !seatMap || !seatContainer) return;
+  seatTrip = await fetchTrip(tripId);
+  if (!seatTrip) {
+    alert('Trip not found.');
+    window.location.href = 'index.html';
+    return;
+  }
 
-  const allSeats = ['1A', '1B', '1C', '1D', '2A', '2B', '2C', '2D', '3A', '3B', '3C', '3D', '4A', '4B', '4C', '4D'];
-  const selected = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]');
-
+  sessionStorage.setItem('selectedSeats', '[]');
   seatContainer.classList.remove('hidden');
-  seatMap.innerHTML = allSeats.map((seat) => {
-    const isSelected = selected.includes(seat);
-    const isBooked = Math.random() < 0.15 && !isSelected;
-    const disabled = isBooked ? 'disabled' : '';
-    return `<button type="button" class="seat ${isSelected ? 'selected' : ''} ${isBooked ? 'booked' : 'available'}" ${disabled} data-seat="${seat}">${seat}</button>`;
-  }).join('');
-
-  document.querySelectorAll('.seat.available').forEach((button) => {
-    button.addEventListener('click', () => {
-      const seat = button.dataset.seat;
-      const nextSelected = [...selected];
-      if (nextSelected.includes(seat)) {
-        const index = nextSelected.indexOf(seat);
-        nextSelected.splice(index, 1);
-      } else if (nextSelected.length < passengers) {
-        nextSelected.push(seat);
-      } else {
-        alert(`You can only select ${passengers} seat(s) for this booking.`);
-        return;
-      }
-      sessionStorage.setItem('selectedSeats', JSON.stringify(nextSelected));
-      renderSeatSelection();
-      updateSummary();
-    });
-  });
-
-  document.getElementById('summaryRoute').textContent = `${trip.origin} → ${trip.destination}`;
-  document.getElementById('summaryDeparture').textContent = dateLabel(trip.departureTime);
-  document.getElementById('summaryPassengers').textContent = String(passengers);
-  document.getElementById('summarySeats').textContent = 'None';
-  document.getElementById('summaryTotal').textContent = currency(0);
+  drawSeats(passengers);
 
   const continueButton = document.getElementById('continueBookingBtn');
   if (continueButton) {
@@ -339,18 +323,46 @@ function renderSeatSelection() {
         alert('Please select one or more seats first.');
         return;
       }
-      window.location.href = `checkout.html?tripId=${trip.id}&passengers=${passengers}&seats=${encodeURIComponent(selectedSeats.join(','))}`;
+      window.location.href = `checkout.html?tripId=${seatTrip.id}&passengers=${passengers}&seats=${encodeURIComponent(selectedSeats.join(','))}`;
     });
   }
-
-  updateSummary();
 }
 
-function updateSummary() {
-  const tripId = getParam('tripId');
-  const passengers = Number(getParam('passengers') || 1);
-  const trip = getTripById(tripId);
-  const selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]');
+function drawSeats(passengers) {
+  const seatMap = document.getElementById('seatMap');
+  if (!seatTrip || !seatMap) return;
+
+  const selected = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]');
+
+  // Booked seats come from real bookings in the database
+  seatMap.innerHTML = seatLabels(seatTrip.totalSeats).map((seat) => {
+    const isSelected = selected.includes(seat);
+    const isBooked = seatTrip.bookedSeats.includes(seat);
+    const disabled = isBooked ? 'disabled' : '';
+    return `<button type="button" class="seat ${isSelected ? 'selected' : ''} ${isBooked ? 'booked' : 'available'}" ${disabled} data-seat="${seat}">${seat}</button>`;
+  }).join('');
+
+  document.querySelectorAll('.seat.available').forEach((button) => {
+    button.addEventListener('click', () => {
+      const seat = button.dataset.seat;
+      const nextSelected = [...selected];
+      if (nextSelected.includes(seat)) {
+        nextSelected.splice(nextSelected.indexOf(seat), 1);
+      } else if (nextSelected.length < passengers) {
+        nextSelected.push(seat);
+      } else {
+        alert(`You can only select ${passengers} seat(s) for this booking.`);
+        return;
+      }
+      sessionStorage.setItem('selectedSeats', JSON.stringify(nextSelected));
+      drawSeats(passengers);
+    });
+  });
+
+  updateSummary(seatTrip, selected, passengers);
+}
+
+function updateSummary(trip, selectedSeats, passengers) {
   const summaryRoute = document.getElementById('summaryRoute');
   const summaryDeparture = document.getElementById('summaryDeparture');
   const summaryPassengers = document.getElementById('summaryPassengers');
@@ -366,30 +378,29 @@ function updateSummary() {
   summaryTotal.textContent = currency((selectedSeats.length || 0) * trip.price);
 }
 
-function renderCheckoutPage() {
+// ---------- Checkout ----------
+
+async function renderCheckoutPage() {
   const tripId = getParam('tripId');
-  const trip = getTripById(tripId);
   const seats = (getParam('seats') || '').split(',').filter(Boolean);
   const passengers = Number(getParam('passengers') || 1);
 
+  const trip = await fetchTrip(tripId);
   if (!trip) return;
 
-  const summaryRoute = document.getElementById('summaryRoute');
-  const summaryDeparture = document.getElementById('summaryDeparture');
-  const summaryPassengers = document.getElementById('summaryPassengers');
-  const summarySeats = document.getElementById('summarySeats');
-  const summaryTotal = document.getElementById('summaryTotal');
+  updateSummary(trip, seats, passengers);
 
-  if (summaryRoute) summaryRoute.textContent = `${trip.origin} → ${trip.destination}`;
-  if (summaryDeparture) summaryDeparture.textContent = dateLabel(trip.departureTime);
-  if (summaryPassengers) summaryPassengers.textContent = String(passengers);
-  if (summarySeats) summarySeats.textContent = seats.length ? seats.join(', ') : 'None';
-  if (summaryTotal) summaryTotal.textContent = currency((seats.length || 0) * trip.price);
+  // Pre-fill what we already know about the logged-in user
+  const user = getCurrentUser();
+  const nameInput = document.getElementById('customerName');
+  const emailInput = document.getElementById('customerEmail');
+  if (user && nameInput && !nameInput.value) nameInput.value = user.name;
+  if (user && emailInput && !emailInput.value) emailInput.value = user.email;
 
   const confirmBtn = document.getElementById('confirmBookingBtn');
   if (!confirmBtn) return;
 
-  confirmBtn.addEventListener('click', () => {
+  confirmBtn.addEventListener('click', async () => {
     const name = document.getElementById('customerName').value.trim();
     const phone = document.getElementById('customerPhone').value.trim();
     const email = document.getElementById('customerEmail').value.trim();
@@ -400,48 +411,51 @@ function renderCheckoutPage() {
       return;
     }
 
-    const state = getState();
-    const bookingRef = `UG-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(100 + Math.random() * 900)}`;
-    const total = (seats.length || 0) * trip.price;
+    confirmBtn.disabled = true;
+    const result = await api('book.php', {
+      method: 'POST',
+      body: { tripId: trip.id, customerName: name, phone, email, paymentMethod: payment, seats }
+    });
+    confirmBtn.disabled = false;
 
-    const booking = {
-      id: bookingRef,
-      tripId: trip.id,
-      route: `${trip.origin} → ${trip.destination}`,
-      departure: trip.departureTime,
-      seats,
-      customer: name,
-      phone,
-      email,
-      payment,
-      paymentStatus: payment === 'CASH_AT_STATION' ? 'PAY_AT_STATION' : 'PAID',
-      status: 'CONFIRMED',
-      seatsReserved: true,
-      total,
-      createdAt: new Date().toISOString()
-    };
-
-    state.bookings.unshift(booking);
-    const bookedTrip = state.trips.find((item) => item.id === trip.id);
-    if (bookedTrip) bookedTrip.seatsAvailable = Math.max(0, bookedTrip.seatsAvailable - seats.length);
-    saveState(state);
+    if (!result.ok) {
+      alert(result.data.message || 'Booking failed. Please try again.');
+      if (result.status === 409) {
+        window.location.href = `seats.html?tripId=${trip.id}&passengers=${passengers}`;
+      }
+      return;
+    }
 
     sessionStorage.removeItem('selectedSeats');
-    window.location.href = `confirmation.html?ref=${encodeURIComponent(bookingRef)}`;
+    window.location.href = `confirmation.html?ref=${encodeURIComponent(result.data.bookingRef)}`;
   });
 }
 
-function renderConfirmationPage() {
-  const ref = getParam('ref');
-  const booking = getState().bookings.find((item) => item.id === ref);
-  const card = document.getElementById('confirmationCard');
+// ---------- Confirmation / receipt ----------
 
+async function renderConfirmationPage() {
+  const ref = getParam('ref');
+  const card = document.getElementById('confirmationCard');
   if (!card) return;
 
-  if (!booking) {
+  const result = await api(`booking.php?ref=${encodeURIComponent(ref)}`);
+  if (!result.ok) {
     card.innerHTML = '<h2>Booking not found</h2><p>Please make a new booking.</p>';
     return;
   }
+
+  const row = result.data.booking;
+  const booking = {
+    id: row.booking_ref,
+    tripId: row.trip_id,
+    route: `${row.origin} → ${row.destination}`,
+    departure: row.departure_time,
+    seats: String(row.seats).split(','),
+    customer: row.user_name,
+    payment: row.payment_method,
+    paymentStatus: row.payment_status,
+    total: Number(row.total_amount)
+  };
 
   const paymentStatus = booking.paymentStatus === 'PAY_AT_STATION' ? 'Pay cash at station' : 'Paid';
   const qrData = `UGANDA-BUS|${booking.id}|${booking.tripId}|${booking.seats.join(',')}|${booking.payment}|${booking.paymentStatus || 'PAID'}`;
@@ -486,10 +500,13 @@ function renderConfirmationPage() {
       console.error('QR generation failed; using fallback QR image.', error);
     }
   }
-
 }
 
-// Validation rules for login/register
+// The admin dashboard lives in admin.js (loaded only by admin.html)
+
+// ---------- Login & register ----------
+
+// Validation rules for login/register (the server checks them again)
 const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MIN_PASSWORD_LENGTH = 6;
@@ -497,17 +514,13 @@ const MIN_PASSWORD_LENGTH = 6;
 function initLoginPage() {
   const form = document.getElementById('loginForm');
   if (!form) return;
-  
+
   const successMsg = document.getElementById('registerSuccess');
   if (successMsg && getParam('registered') === '1') {
     successMsg.classList.remove('hidden');
   }
 
-  if (getParam('registered') === '1') {
-    alert('Account created successfully. Please log in with your email and password.');
-  }
-
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
@@ -527,36 +540,16 @@ function initLoginPage() {
       return;
     }
 
-    const isAdmin = email.toLowerCase() === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password;
-    if (email.toLowerCase().includes('admin') && !isAdmin) {
-      alert('Invalid admin email or password.');
+    const result = await api('login.php', { method: 'POST', body: { email, password } });
+    if (!result.ok) {
+      alert(result.data.message || 'Login failed.');
       return;
     }
 
-    const state = getState();
-    let account = null;
-    if (!isAdmin) {
-      const users = state.users || [];
-      account = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (!account || account.password !== password) {
-        alert('Invalid email or password. If you are new, please register first.');
-        return;
-      }
-      if (account.blocked) {
-        alert('This account has been suspended. Please contact Uganda Bus support.');
-        return;
-      }
-    }
-
-    state.user = {
-      name: isAdmin ? 'Admin' : account.name,
-      email,
-      role: isAdmin ? 'admin' : 'customer'
-    };
-    saveState(state);
+    setCurrentUser(result.data.user);
 
     const redirect = getParam('redirect');
-    window.location.href = redirect || getRoleHome(state.user.role);
+    window.location.href = redirect || getRoleHome(result.data.user.role);
   });
 }
 
@@ -564,7 +557,7 @@ function initRegisterPage() {
   const form = document.getElementById('registerForm');
   if (!form) return;
 
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = document.getElementById('registerName').value.trim();
     const email = document.getElementById('registerEmail').value.trim();
@@ -590,22 +583,19 @@ function initRegisterPage() {
       return;
     }
 
-    const state = getState();
-    state.users = state.users || [];
-    const exists = state.users.some((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (exists || email.toLowerCase() === ADMIN_CREDENTIALS.email) {
-      alert('An account with this email already exists. Please log in.');
+    const result = await api('register.php', { method: 'POST', body: { name, email, password } });
+    if (!result.ok) {
+      alert(result.data.message || 'Registration failed.');
       return;
     }
 
-    // Save the account but do NOT log the user in – they must log in with these credentials
-    state.users.push({ name, email, password });
-    state.user = null;
-    saveState(state);
-
+    // Account saved in the database - the user must now log in
+    setCurrentUser(null);
     window.location.href = 'login.html?registered=1';
   });
 }
+
+// ---------- Start ----------
 
 function initPage() {
   const page = document.body.dataset.page;

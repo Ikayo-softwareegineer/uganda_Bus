@@ -18,34 +18,43 @@ This project is a simpler rebuild of the bus booking app using:
 
 ## Run locally
 
-From the project folder:
+With PHP installed, from the repository root:
 
 ```bash
 php -S localhost:8000
 ```
 
-Then open:
-
-```text
-http://localhost:8000
-```
-
-## Database setup
-
-First initialize the SQLite database:
+Or with Docker (the same setup Render uses):
 
 ```bash
-php backend/api/init_db.php
+docker build -t uganda-bus .
+docker run -p 8000:80 uganda-bus
 ```
 
-Then open the app in the browser.
+Then open http://localhost:8000
 
-## Deploy the frontend on Render
+The SQLite database (`backend/api/data/bus_system.sqlite`) is created and
+seeded automatically on the first request. `php backend/api/init_db.php`
+re-runs the setup by hand if needed.
 
-This repository includes a `render.yaml` Blueprint for deploying the frontend as a Render Static Site.
+## Admin login
+
+The admin account is hard-coded in `backend/api/config.php`:
+
+- Email: `admin@ugandabus.com`
+- Password: `Admin@123`
+
+The admin dashboard (`frontend/pages/admin.html`) manages bookings,
+passengers, trips, buses, routes and payments, and shows reports.
+
+## Deploy on Render
+
+`render.yaml` deploys the whole app (pages + PHP API) as a Docker web
+service using the `Dockerfile` in the repository root.
 
 1. In Render, choose **New > Blueprint** and connect this repository.
 2. Select the `main` branch.
-3. Render will use `php-rebuild` as the site root and publish the frontend automatically.
 
-The current browser booking flow uses localStorage, so bookings are stored per browser. The PHP API and SQLite database are not executed by a Static Site. To use those backend APIs in production, deploy the PHP backend separately with a PHP-capable Docker service and configure the frontend API URLs.
+On the free plan Render's disk is temporary, so the database is reset to the
+sample data on every deploy or restart. To keep data, use a paid plan and
+uncomment the `disk` section in `render.yaml`.

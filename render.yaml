@@ -1,6 +1,13 @@
 services:
   - type: web
-    name: uganda-bus-frontend
-    runtime: static
-    buildCommand: echo "No build required"
-    staticPublishPath: .
+    name: uganda-bus
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /php-rebuild/backend/api/routes.php
+    # On the free plan the SQLite file is reset on every deploy/restart.
+    # On a paid plan, uncomment this to keep the database between deploys:
+    # disk:
+    #   name: bus-data
+    #   mountPath: /var/www/html/php-rebuild/backend/api/data
+    #   sizeGB: 1
