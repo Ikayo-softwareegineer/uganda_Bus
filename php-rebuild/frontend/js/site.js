@@ -241,7 +241,8 @@ function renderSearchResults() {
     const matchesDestination = !destination || trip.destination === destination;
     const matchesDate = !date || trip.departureTime.slice(0, 10) === date;
     const hasSeats = trip.seatsAvailable >= passengers;
-    return matchesOrigin && matchesDestination && matchesDate && hasSeats;
+    const isScheduled = trip.status !== 'CANCELLED';
+    return isScheduled && matchesOrigin && matchesDestination && matchesDate && hasSeats;
   });
 
   if (!trips.length) {
@@ -414,11 +415,15 @@ function renderCheckoutPage() {
       email,
       payment,
       paymentStatus: payment === 'CASH_AT_STATION' ? 'PAY_AT_STATION' : 'PAID',
+      status: 'CONFIRMED',
+      seatsReserved: true,
       total,
       createdAt: new Date().toISOString()
     };
 
     state.bookings.unshift(booking);
+    const bookedTrip = state.trips.find((item) => item.id === trip.id);
+    if (bookedTrip) bookedTrip.seatsAvailable = Math.max(0, bookedTrip.seatsAvailable - seats.length);
     saveState(state);
 
     sessionStorage.removeItem('selectedSeats');
@@ -484,47 +489,6 @@ function renderConfirmationPage() {
 
 }
 
-function renderAdminPage() {
-  const statsContainer = document.getElementById('adminStats');
-  if (!statsContainer) return;
-
-  const state = getState();
-  const bookings = state.bookings;
-  const totalBookings = bookings.length;
-  const totalRevenue = bookings.reduce((sum, booking) => sum + Number(booking.total || 0), 0);
-
-  statsContainer.innerHTML = `
-    <div class="admin-card">
-      <h3>Total trips</h3>
-      <strong>${state.trips.length}</strong>
-    </div>
-    <div class="admin-card">
-      <h3>Bookings</h3>
-      <strong>${totalBookings}</strong>
-    </div>
-    <div class="admin-card">
-      <h3>Revenue</h3>
-      <strong>${currency(totalRevenue)}</strong>
-    </div>
-    <div class="admin-card">
-      <h3>Routes</h3>
-      <strong>${new Set(state.trips.map((trip) => trip.origin + '→' + trip.destination)).size}</strong>
-    </div>
-  `;
-
-  const list = document.getElementById('adminBookings');
-  if (!list) return;
-
-  list.innerHTML = bookings.length ? bookings.map((booking) => `
-    <tr>
-      <td>${booking.id}</td>
-      <td>${booking.route}</td>
-      <td>${booking.seats.join(', ')}</td>
-      <td>${currency(booking.total)}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="4">No bookings yet.</td></tr>';
-}
-
 // Validation rules for login/register
 const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -576,6 +540,10 @@ function initLoginPage() {
       account = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
       if (!account || account.password !== password) {
         alert('Invalid email or password. If you are new, please register first.');
+        return;
+      }
+      if (account.blocked) {
+        alert('This account has been suspended. Please contact Uganda Bus support.');
         return;
       }
     }
@@ -650,7 +618,7 @@ function initPage() {
   if (page === 'seats') renderSeatSelection();
   if (page === 'checkout') renderCheckoutPage();
   if (page === 'confirmation') renderConfirmationPage();
-  if (page === 'admin') renderAdminPage();
+  if (page === 'admin' && typeof initAdminDashboard === 'function') initAdminDashboard();
   if (page === 'login') initLoginPage();
   if (page === 'register') initRegisterPage();
 }

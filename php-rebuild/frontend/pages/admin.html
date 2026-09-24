@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -6,49 +6,102 @@
     <title>Admin Dashboard | Uganda Bus</title>
     <link rel="stylesheet" href="../css/style.css" />
   </head>
-  <body data-page="admin">
-    <header class="topbar">
-      <div class="container navbar">
-        <div class="brand">
+  <body data-page="admin" class="admin-body">
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <div class="brand admin-brand">
           <span class="brand-mark">UB</span>
-          <span>Uganda Bus</span>
+          <span>Uganda Bus<small>Admin panel</small></span>
         </div>
-        <div class="nav-actions">
-          <a class="link-btn" href="index.html">Home</a>
-          <a class="primary-btn" href="login.html" data-logout>Logout</a>
-        </div>
-      </div>
-    </header>
 
-    <main class="section">
-      <div class="container">
-        <div class="section-head">
+        <nav class="admin-nav" aria-label="Admin menu">
+          <a href="#dashboard" data-nav="dashboard">
+            <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg>
+            Dashboard
+          </a>
+          <a href="#bookings" data-nav="bookings">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
+            Bookings
+          </a>
+          <a href="#passengers" data-nav="passengers">
+            <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>
+            Passengers
+          </a>
+          <a href="#trips" data-nav="trips">
+            <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+            Trips
+          </a>
+          <a href="#buses" data-nav="buses">
+            <svg viewBox="0 0 24 24"><path d="M5 17V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12M5 11h14M3 17h18v2H3zM8 21v-2M16 21v-2"/></svg>
+            Buses
+          </a>
+          <a href="#routes" data-nav="routes">
+            <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 15V9a4 4 0 0 1 4-4h6M18 9v6a4 4 0 0 1-4 4H8"/></svg>
+            Routes
+          </a>
+          <a href="#payments" data-nav="payments">
+            <svg viewBox="0 0 24 24"><path d="M2 6h20v12H2zM2 10h20M6 15h4"/></svg>
+            Payments
+            <span class="nav-count hidden" id="pendingPaymentsCount"></span>
+          </a>
+          <a href="#reports" data-nav="reports">
+            <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+            Reports
+          </a>
+        </nav>
+
+        <a class="admin-logout" href="login.html" data-logout>
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Logout
+        </a>
+      </aside>
+
+      <div class="admin-main">
+        <header class="admin-header">
           <div>
             <span class="eyebrow">Operations</span>
-            <h2 class="section-title">Admin dashboard</h2>
+            <h1 id="adminSectionTitle">Dashboard</h1>
           </div>
-        </div>
+          <div class="admin-user">
+            <span class="admin-avatar">A</span>
+            <div>
+              <strong id="adminName">Admin</strong>
+              <small id="adminEmail"></small>
+            </div>
+          </div>
+        </header>
 
-        <div id="adminStats" class="admin-grid"></div>
-
-        <div class="table-card">
-          <h3>Recent bookings</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Ref</th>
-                <th>Route</th>
-                <th>Seats</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody id="adminBookings"></tbody>
-          </table>
-        </div>
+        <main class="admin-content">
+          <section data-section="dashboard" class="admin-section"></section>
+          <section data-section="bookings" class="admin-section" hidden></section>
+          <section data-section="passengers" class="admin-section" hidden></section>
+          <section data-section="trips" class="admin-section" hidden></section>
+          <section data-section="buses" class="admin-section" hidden></section>
+          <section data-section="routes" class="admin-section" hidden></section>
+          <section data-section="payments" class="admin-section" hidden></section>
+          <section data-section="reports" class="admin-section" hidden></section>
+        </main>
       </div>
-    </main>
+    </div>
+
+    <dialog id="adminModal" class="admin-modal">
+      <form id="adminModalForm" novalidate>
+        <div class="modal-head">
+          <h2 id="adminModalTitle"></h2>
+          <button type="button" class="icon-btn" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div id="adminModalBody" class="modal-body"></div>
+        <p id="adminModalError" class="alert error hidden"></p>
+        <div class="modal-actions" id="adminModalActions">
+          <button type="button" class="ghost-btn" data-close-modal>Cancel</button>
+          <button type="submit" class="primary-btn" id="adminModalSubmit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
 
     <script src="../js/site.js"></script>
+    <script src="../js/admin.js"></script>
   </body>
 </html>
-
