@@ -27,6 +27,7 @@ $sql = "
     WHERE r.origin = :origin
       AND r.destination = :destination
       AND t.available_seats >= :passengers
+    AND DATE(t.departure_time) >= DATE('now', 'localtime')
 ";
 
 $params = [
