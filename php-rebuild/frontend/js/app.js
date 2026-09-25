@@ -1,4 +1,4 @@
-const state = {
+88const state = {
   trips: [],
   selectedTrip: null,
   selectedSeats: [],

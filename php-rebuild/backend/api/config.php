@@ -11,6 +11,21 @@ const ADMIN_PASSWORD = 'Admin@123';
 // Bump this when schema.php changes so existing databases are upgraded
 const SCHEMA_VERSION = 2;
 
+function jsonResponse($data, $status = 200)
+{
+    http_response_code($status);
+    header('Content-Type: application/json');
+    echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+if (!class_exists('PDO') || !in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+    jsonResponse([
+        'success' => false,
+        'message' => 'The PHP SQLite database driver is not enabled. Install php-pdo and php-sqlite, then restart the PHP server.'
+    ], 503);
+}
+
 $dbDir = __DIR__ . '/data';
 if (!is_dir($dbDir)) {
     mkdir($dbDir, 0777, true);
@@ -58,14 +73,6 @@ function requireLogin($role = null)
         jsonResponse(['success' => false, 'message' => 'Not allowed'], 403);
     }
     return $user;
-}
-
-function jsonResponse($data, $status = 200)
-{
-    http_response_code($status);
-    header('Content-Type: application/json');
-    echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
 }
 
 function randomBookingRef()

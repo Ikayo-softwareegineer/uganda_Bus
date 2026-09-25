@@ -1,11 +1,66 @@
-// ============================================================
-// Uganda Bus - frontend logic (client)
-// All data now comes from the PHP API (server) and SQLite database.
-// localStorage only remembers WHO is logged in, so pages can show
-// the right links; the server checks the real login on every request.
-// ============================================================
+const DEFAULT_TRIPS = [
+  {
+    id: 'TRIP-101',
+    origin: 'Kampala',
+    destination: 'Mbarara',
+    departureTime: '2026-09-20T07:30:00',
+    arrivalTime: '2026-09-20T13:00:00',
+    operator: 'Great Link',
+    price: 28000,
+    seatsAvailable: 12
+  },
+  {
+    id: 'TRIP-102',
+    origin: 'Kampala',
+    destination: 'Gulu',
+    departureTime: '2026-09-21T08:00:00',
+    arrivalTime: '2026-09-21T15:15:00',
+    operator: 'Pearl Travel',
+    price: 36000,
+    seatsAvailable: 9
+  },
+  {
+    id: 'TRIP-103',
+    origin: 'Kampala',
+    destination: 'Jinja',
+    departureTime: '2026-09-22T09:00:00',
+    arrivalTime: '2026-09-22T11:00:00',
+    operator: 'Coastal Express',
+    price: 16000,
+    seatsAvailable: 15
+  },
+  {
+    id: 'TRIP-104',
+    origin: 'Kampala',
+    destination: 'Fort Portal',
+    departureTime: '2026-09-23T07:00:00',
+    arrivalTime: '2026-09-23T12:30:00',
+    operator: 'Roadmaster',
+    price: 26000,
+    seatsAvailable: 7
+  },
+  {
+    id: 'TRIP-105',
+    origin: 'Mbarara',
+    destination: 'Kabale',
+    departureTime: '2026-09-24T06:30:00',
+    arrivalTime: '2026-09-24T10:45:00',
+    operator: 'Mountain Route',
+    price: 22000,
+    seatsAvailable: 10
+  },
+  {
+    id: 'TRIP-106',
+    origin: 'Gulu',
+    destination: 'Lira',
+    departureTime: '2026-09-25T08:30:00',
+    arrivalTime: '2026-09-25T11:15:00',
+    operator: 'Northline Bus',
+    price: 18000,
+    seatsAvailable: 18
+  }
+];
 
-const API = '../../backend/api/';
 const STORAGE_KEY = 'ugandaBusBooking';
 
 // ---------- Talking to the server ----------
@@ -69,11 +124,18 @@ async function fetchTrip(id) {
 // ---------- Who is logged in (cached in the browser) ----------
 
 function getState() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { user: null };
-  } catch (error) {
-    return { user: null };
-  }
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (existing) return JSON.parse(existing);
+
+  const initial = {
+    user: null,
+    bookings: [],
+    trips: DEFAULT_TRIPS,
+    authMode: 'login'
+  };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+  return initial;
 }
 
 function saveState(state) {
@@ -84,25 +146,22 @@ function getCurrentUser() {
   return getState().user;
 }
 
-function setCurrentUser(user) {
-  saveState({ user });
-}
-
 function getRoleHome(role) {
-  return role === 'admin' ? 'admin.html' : 'index.html';
+  return role === 'admin' || role === 'staff' ? 'admin.html' : 'index.html';
 }
 
 function requireRole(page) {
   const user = getCurrentUser();
   const passengerPages = ['search', 'seats', 'checkout', 'confirmation'];
+  const adminPages = ['admin'];
 
-  if (page === 'home' && user && user.role === 'admin') {
+  if (page === 'home' && user && ['admin', 'staff'].includes(user.role)) {
     window.location.href = 'admin.html';
     return false;
   }
 
-  if (page === 'admin') {
-    if (user && user.role === 'admin') return true;
+  if (adminPages.includes(page)) {
+    if (user && ['admin', 'staff'].includes(user.role)) return true;
     window.location.href = user ? 'index.html' : 'login.html?redirect=admin.html';
     return false;
   }
@@ -160,9 +219,16 @@ function getParam(name) {
   return params.get(name) || '';
 }
 
-// ---------- Home page ----------
+function getTripById(id) {
+  const state = getState();
+  return state.trips.find((trip) => trip.id === id) || null;
+}
 
-async function populateRouteSelects() {
+function populateRouteSelects() {
+  const state = getState();
+  const origins = [...new Set(state.trips.map((trip) => trip.origin))];
+  const destinations = [...new Set(state.trips.map((trip) => trip.destination))];
+
   const originSelect = document.getElementById('origin');
   const destinationSelect = document.getElementById('destination');
   if (!originSelect || !destinationSelect) return;
@@ -193,8 +259,9 @@ function initHomePage() {
   const bookButton = document.getElementById('bookBtn');
   const dateInput = document.getElementById('date');
   if (dateInput && !dateInput.value) {
-    dateInput.value = new Date().toISOString().split('T')[0];
+    dateInput.value = todayKey();
   }
+  if (dateInput) dateInput.min = todayKey();
 
   if (bookButton) {
     bookButton.addEventListener('click', () => {
@@ -236,13 +303,16 @@ async function renderSearchResults() {
   const destination = getParam('destination');
   const date = getParam('date');
   const passengers = Number(getParam('passengers') || 1);
-  const isHome = document.body.dataset.page === 'home';
 
-  const query = new URLSearchParams({ origin, destination, date, passengers });
-  if (isHome) query.set('limit', '6');
-
-  const result = await api(`search.php?${query.toString()}`);
-  const trips = result.ok ? result.data.trips.map(normalizeTrip) : [];
+  const state = getState();
+  let trips = state.trips.filter((trip) => {
+    const matchesOrigin = !origin || trip.origin === origin;
+    const matchesDestination = !destination || trip.destination === destination;
+    const matchesDate = !date || trip.departureTime.slice(0, 10) === date;
+    const hasSeats = trip.seatsAvailable >= passengers;
+    const isScheduled = trip.status !== 'CANCELLED';
+    return isScheduled && matchesOrigin && matchesDestination && matchesDate && hasSeats;
+  });
 
   if (!trips.length) {
     resultsContainer.innerHTML = `
@@ -254,33 +324,40 @@ async function renderSearchResults() {
     return;
   }
 
-  resultsContainer.innerHTML = trips.map((trip) => `
-    <article class="trip-card">
-      <div class="trip-top">
-        <div>
-          <div class="route-name">${trip.origin} → ${trip.destination}</div>
-          <small>${trip.operator}</small>
-        </div>
-        <div class="route-price">${currency(trip.price)}</div>
-      </div>
+  const notice = fallbackUsed && date
+    ? `<p class="route-note">No exact trip was available on ${new Date(date).toLocaleDateString()}, but these departures are still available for the selected route.</p>`
+    : '';
 
-      <div class="trip-meta">
-        <div>
-          Departure
-          <strong>${dateLabel(trip.departureTime)}</strong>
+  resultsContainer.innerHTML = `
+    ${notice}
+    ${trips.map((trip) => `
+      <article class="trip-card">
+        <div class="trip-top">
+          <div>
+            <div class="route-name">${trip.origin} → ${trip.destination}</div>
+            <small>${trip.operator}</small>
+          </div>
+          <div class="route-price">${currency(trip.price)}</div>
         </div>
-        <div>
-          Arrival
-          <strong>${dateLabel(trip.arrivalTime)}</strong>
-        </div>
-      </div>
 
-      <div class="trip-footer">
-        <span class="badge ${trip.seatsAvailable > 5 ? 'success' : 'warning'}">${trip.seatsAvailable} seats</span>
-        <a class="primary-btn" href="seats.html?tripId=${trip.id}&passengers=${passengers}">Select trip</a>
-      </div>
-    </article>
-  `).join('');
+        <div class="trip-meta">
+          <div>
+            Departure
+            <strong>${dateLabel(trip.departureTime)}</strong>
+          </div>
+          <div>
+            Arrival
+            <strong>${dateLabel(trip.arrivalTime)}</strong>
+          </div>
+        </div>
+
+        <div class="trip-footer">
+          <span class="badge ${trip.seatsAvailable > 5 ? 'success' : 'warning'}">${trip.seatsAvailable} seats</span>
+          <a class="primary-btn" href="seats.html?tripId=${trip.id}&passengers=${passengers}">Select trip</a>
+        </div>
+      </article>
+    `).join('')}
+  `;
 }
 
 // ---------- Seat selection ----------
@@ -500,11 +577,8 @@ async function renderConfirmationPage() {
       console.error('QR generation failed; using fallback QR image.', error);
     }
   }
+
 }
-
-// The admin dashboard lives in admin.js (loaded only by admin.html)
-
-// ---------- Login & register ----------
 
 // Validation rules for login/register (the server checks them again)
 const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
@@ -546,7 +620,27 @@ function initLoginPage() {
       return;
     }
 
-    setCurrentUser(result.data.user);
+    const state = getState();
+    let account = null;
+    if (!isAdmin) {
+      const users = state.users || [];
+      account = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      if (!account || account.password !== password) {
+        alert('Invalid email or password. If you are new, please register first.');
+        return;
+      }
+      if (account.blocked) {
+        alert('This account has been suspended. Please contact Uganda Bus support.');
+        return;
+      }
+    }
+
+    state.user = {
+      name: isAdmin ? 'Admin' : account.name,
+      email,
+      role: isAdmin ? 'admin' : 'customer'
+    };
+    saveState(state);
 
     const redirect = getParam('redirect');
     window.location.href = redirect || getRoleHome(result.data.user.role);
@@ -589,8 +683,11 @@ function initRegisterPage() {
       return;
     }
 
-    // Account saved in the database - the user must now log in
-    setCurrentUser(null);
+    // Save the account but do NOT log the user in – they must log in with these credentials
+    state.users.push({ name, email, password });
+    state.user = null;
+    saveState(state);
+
     window.location.href = 'login.html?registered=1';
   });
 }

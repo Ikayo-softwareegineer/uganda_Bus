@@ -26,6 +26,7 @@ $sql = "
     WHERE t.available_seats >= :passengers
       AND t.status = 'SCHEDULED'
       AND r.status = 'ACTIVE'
+      AND DATE(t.departure_time) >= DATE('now', 'localtime')
 ";
 
 $params = [':passengers' => $passengers];
