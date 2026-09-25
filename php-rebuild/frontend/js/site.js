@@ -1,10 +1,37 @@
+async function readApiResponse(response) {
+  const body = await response.text();
+  let payload;
+
+  try {
+    payload = JSON.parse(body);
+  } catch (error) {
+    const isHtml = /^\s*(<!doctype html|<html|<br\b|<b\b)/i.test(body);
+    if (isHtml) {
+      throw new Error('The server returned an HTML error instead of JSON. The PHP API may be unavailable; run the project with a PHP server and initialize its database.');
+    }
+    throw new Error('The server returned an invalid response. Please check the PHP API.');
+  }
+
+  if (!response.ok) {
+    throw new Error(payload.message || `Request failed (${response.status})`);
+  }
+  return payload;
+}
+
+function dateOffset(days, time) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const datePart = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+  return `${datePart}T${time}`;
+}
+
 const DEFAULT_TRIPS = [
   {
     id: 'TRIP-101',
     origin: 'Kampala',
     destination: 'Mbarara',
-    departureTime: '2026-09-20T07:30:00',
-    arrivalTime: '2026-09-20T13:00:00',
+    departureTime: dateOffset(1, '07:30:00'),
+    arrivalTime: dateOffset(1, '13:00:00'),
     operator: 'Great Link',
     price: 28000,
     seatsAvailable: 12
@@ -13,8 +40,8 @@ const DEFAULT_TRIPS = [
     id: 'TRIP-102',
     origin: 'Kampala',
     destination: 'Gulu',
-    departureTime: '2026-09-21T08:00:00',
-    arrivalTime: '2026-09-21T15:15:00',
+    departureTime: dateOffset(2, '08:00:00'),
+    arrivalTime: dateOffset(2, '15:15:00'),
     operator: 'Pearl Travel',
     price: 36000,
     seatsAvailable: 9
@@ -23,8 +50,8 @@ const DEFAULT_TRIPS = [
     id: 'TRIP-103',
     origin: 'Kampala',
     destination: 'Jinja',
-    departureTime: '2026-09-22T09:00:00',
-    arrivalTime: '2026-09-22T11:00:00',
+    departureTime: dateOffset(3, '09:00:00'),
+    arrivalTime: dateOffset(3, '11:00:00'),
     operator: 'Coastal Express',
     price: 16000,
     seatsAvailable: 15
@@ -33,8 +60,8 @@ const DEFAULT_TRIPS = [
     id: 'TRIP-104',
     origin: 'Kampala',
     destination: 'Fort Portal',
-    departureTime: '2026-09-23T07:00:00',
-    arrivalTime: '2026-09-23T12:30:00',
+    departureTime: dateOffset(4, '07:00:00'),
+    arrivalTime: dateOffset(4, '12:30:00'),
     operator: 'Roadmaster',
     price: 26000,
     seatsAvailable: 7
@@ -43,8 +70,8 @@ const DEFAULT_TRIPS = [
     id: 'TRIP-105',
     origin: 'Mbarara',
     destination: 'Kabale',
-    departureTime: '2026-09-24T06:30:00',
-    arrivalTime: '2026-09-24T10:45:00',
+    departureTime: dateOffset(5, '06:30:00'),
+    arrivalTime: dateOffset(5, '10:45:00'),
     operator: 'Mountain Route',
     price: 22000,
     seatsAvailable: 10
@@ -53,8 +80,8 @@ const DEFAULT_TRIPS = [
     id: 'TRIP-106',
     origin: 'Gulu',
     destination: 'Lira',
-    departureTime: '2026-09-25T08:30:00',
-    arrivalTime: '2026-09-25T11:15:00',
+    departureTime: dateOffset(6, '08:30:00'),
+    arrivalTime: dateOffset(6, '11:15:00'),
     operator: 'Northline Bus',
     price: 18000,
     seatsAvailable: 18
@@ -75,6 +102,7 @@ function getState() {
     user: null,
     bookings: [],
     trips: DEFAULT_TRIPS,
+    users: [],
     authMode: 'login'
   };
 
@@ -90,21 +118,32 @@ function getCurrentUser() {
   return getState().user;
 }
 
+function todayKey() {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function isUpcomingTrip(trip) {
+  return String(trip.departureTime || '').slice(0, 10) >= todayKey();
+}
+
 function getRoleHome(role) {
-  return role === 'admin' ? 'admin.html' : 'index.html';
+  return role === 'admin' || role === 'staff' ? 'admin.html' : 'index.html';
 }
 
 function requireRole(page) {
   const user = getCurrentUser();
   const passengerPages = ['search', 'seats', 'checkout', 'confirmation'];
+  const adminPages = ['admin'];
 
-  if (page === 'home' && user && user.role === 'admin') {
+  if (page === 'home' && user && ['admin', 'staff'].includes(user.role)) {
     window.location.href = 'admin.html';
     return false;
   }
 
-  if (page === 'admin') {
-    if (user && user.role === 'admin') return true;
+  if (adminPages.includes(page)) {
+    if (user && ['admin', 'staff'].includes(user.role)) return true;
     window.location.href = user ? 'index.html' : 'login.html?redirect=admin.html';
     return false;
   }
@@ -168,8 +207,9 @@ function getTripById(id) {
 
 function populateRouteSelects() {
   const state = getState();
-  const origins = [...new Set(state.trips.map((trip) => trip.origin))];
-  const destinations = [...new Set(state.trips.map((trip) => trip.destination))];
+  const upcomingTrips = state.trips.filter(isUpcomingTrip);
+  const origins = [...new Set(upcomingTrips.map((trip) => trip.origin))];
+  const destinations = [...new Set(upcomingTrips.map((trip) => trip.destination))];
 
   const originSelect = document.getElementById('origin');
   const destinationSelect = document.getElementById('destination');
@@ -198,8 +238,9 @@ function initHomePage() {
   const bookButton = document.getElementById('bookBtn');
   const dateInput = document.getElementById('date');
   if (dateInput && !dateInput.value) {
-    dateInput.value = new Date().toISOString().split('T')[0];
+    dateInput.value = todayKey();
   }
+  if (dateInput) dateInput.min = todayKey();
 
   if (bookButton) {
     bookButton.addEventListener('click', () => {
@@ -236,7 +277,8 @@ function renderSearchResults() {
   const passengers = Number(getParam('passengers') || 1);
 
   const state = getState();
-  let trips = state.trips.filter((trip) => {
+  const exactMatches = state.trips.filter((trip) => {
+    if (!isUpcomingTrip(trip)) return false;
     const matchesOrigin = !origin || trip.origin === origin;
     const matchesDestination = !destination || trip.destination === destination;
     const matchesDate = !date || trip.departureTime.slice(0, 10) === date;
@@ -244,6 +286,19 @@ function renderSearchResults() {
     const isScheduled = trip.status !== 'CANCELLED';
     return isScheduled && matchesOrigin && matchesDestination && matchesDate && hasSeats;
   });
+
+  let trips = exactMatches;
+  let fallbackUsed = false;
+
+  if (!trips.length) {
+    trips = state.trips.filter((trip) => {
+      if (!isUpcomingTrip(trip)) return false;
+      const matchesRoute = (!origin || trip.origin === origin) && (!destination || trip.destination === destination);
+      const hasSeats = trip.seatsAvailable >= passengers;
+      return matchesRoute && hasSeats;
+    });
+    fallbackUsed = true;
+  }
 
   if (!trips.length) {
     resultsContainer.innerHTML = `
@@ -257,33 +312,40 @@ function renderSearchResults() {
 
   trips = trips.sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime));
 
-  resultsContainer.innerHTML = trips.map((trip) => `
-    <article class="trip-card">
-      <div class="trip-top">
-        <div>
-          <div class="route-name">${trip.origin} → ${trip.destination}</div>
-          <small>${trip.operator}</small>
-        </div>
-        <div class="route-price">${currency(trip.price)}</div>
-      </div>
+  const notice = fallbackUsed && date
+    ? `<p class="route-note">No exact trip was available on ${new Date(date).toLocaleDateString()}, but these departures are still available for the selected route.</p>`
+    : '';
 
-      <div class="trip-meta">
-        <div>
-          Departure
-          <strong>${dateLabel(trip.departureTime)}</strong>
+  resultsContainer.innerHTML = `
+    ${notice}
+    ${trips.map((trip) => `
+      <article class="trip-card">
+        <div class="trip-top">
+          <div>
+            <div class="route-name">${trip.origin} → ${trip.destination}</div>
+            <small>${trip.operator}</small>
+          </div>
+          <div class="route-price">${currency(trip.price)}</div>
         </div>
-        <div>
-          Arrival
-          <strong>${dateLabel(trip.arrivalTime)}</strong>
-        </div>
-      </div>
 
-      <div class="trip-footer">
-        <span class="badge ${trip.seatsAvailable > 5 ? 'success' : 'warning'}">${trip.seatsAvailable} seats</span>
-        <a class="primary-btn" href="seats.html?tripId=${trip.id}&passengers=${passengers}">Select trip</a>
-      </div>
-    </article>
-  `).join('');
+        <div class="trip-meta">
+          <div>
+            Departure
+            <strong>${dateLabel(trip.departureTime)}</strong>
+          </div>
+          <div>
+            Arrival
+            <strong>${dateLabel(trip.arrivalTime)}</strong>
+          </div>
+        </div>
+
+        <div class="trip-footer">
+          <span class="badge ${trip.seatsAvailable > 5 ? 'success' : 'warning'}">${trip.seatsAvailable} seats</span>
+          <a class="primary-btn" href="seats.html?tripId=${trip.id}&passengers=${passengers}">Select trip</a>
+        </div>
+      </article>
+    `).join('')}
+  `;
 }
 
 function renderSeatSelection() {
@@ -489,6 +551,8 @@ function renderConfirmationPage() {
 
 }
 
+
+
 // Validation rules for login/register
 const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -548,10 +612,11 @@ function initLoginPage() {
       }
     }
 
+    const userRole = isAdmin ? 'admin' : (account && account.role ? account.role : 'customer');
     state.user = {
       name: isAdmin ? 'Admin' : account.name,
       email,
-      role: isAdmin ? 'admin' : 'customer'
+      role: userRole
     };
     saveState(state);
 
@@ -599,7 +664,7 @@ function initRegisterPage() {
     }
 
     // Save the account but do NOT log the user in – they must log in with these credentials
-    state.users.push({ name, email, password });
+    state.users.push({ name, email, password, role: 'customer' });
     state.user = null;
     saveState(state);
 
