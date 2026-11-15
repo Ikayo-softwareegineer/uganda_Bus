@@ -9,10 +9,12 @@ $user = requireLogin();
 $ref = trim($_GET['ref'] ?? '');
 
 $stmt = $pdo->prepare('
-    SELECT b.*, t.departure_time, r.origin, r.destination
+    SELECT b.*, t.departure_time, t.arrival_time, t.price_ugx, r.origin, r.destination,
+           r.distance_km, r.duration, v.operator_name, v.reg_number, v.model
     FROM bookings b
     JOIN trips t ON t.id = b.trip_id
     JOIN routes r ON r.id = t.route_id
+    JOIN vehicles v ON v.id = t.vehicle_id
     WHERE b.booking_ref = ?
 ');
 $stmt->execute([$ref]);

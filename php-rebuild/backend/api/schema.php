@@ -67,6 +67,11 @@ function initDatabase(PDO $pdo)
     addColumnIfMissing($pdo, 'routes', 'status', "TEXT NOT NULL DEFAULT 'ACTIVE'");
     addColumnIfMissing($pdo, 'vehicles', 'bus_type', "TEXT NOT NULL DEFAULT 'Standard'");
     addColumnIfMissing($pdo, 'users', 'blocked', 'INTEGER NOT NULL DEFAULT 0');
+    // Version 3: per-passenger names, and ticket checks by staff at boarding
+    addColumnIfMissing($pdo, 'bookings', 'passenger_names', 'TEXT');
+    addColumnIfMissing($pdo, 'bookings', 'passenger_details', 'TEXT'); // JSON: seat, name, phone, email per traveller
+    addColumnIfMissing($pdo, 'bookings', 'verified_at', 'TEXT');
+    addColumnIfMissing($pdo, 'bookings', 'verified_by', 'INTEGER REFERENCES users(id)');
 
     $pdo->exec('CREATE TABLE IF NOT EXISTS admin_stats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,14 +81,19 @@ function initDatabase(PDO $pdo)
 
     $countRoutes = $pdo->query('SELECT COUNT(*) AS count FROM routes')->fetch()['count'];
     if ($countRoutes == 0) {
-        $routes = [
-            ['Kampala', 'Mbarara', 290, '5h 30m', 28000],
-            ['Kampala', 'Gulu', 380, '7h 15m', 36000],
-            ['Kampala', 'Jinja', 80, '2h 00m', 16000],
-            ['Kampala', 'Fort Portal', 260, '5h 00m', 26000],
-            ['Mbarara', 'Kabale', 180, '4h 15m', 22000],
-            ['Gulu', 'Lira', 120, '2h 45m', 18000]
-        ];
+        // Same routes, distances and fares as the UG Express design (both directions)
+        $routes = [];
+        foreach ([
+            ['Mbarara', 270, '4h 30m', 30000],
+            ['Kabale', 410, '7h 00m', 45000],
+            ['Fort Portal', 300, '5h 00m', 35000],
+            ['Gulu', 335, '5h 30m', 40000],
+            ['Jinja', 85, '2h 00m', 15000],
+            ['Masaka', 130, '2h 30m', 20000]
+        ] as [$town, $km, $duration, $fare]) {
+            $routes[] = ['Kampala', $town, $km, $duration, $fare];
+            $routes[] = [$town, 'Kampala', $km, $duration, $fare];
+        }
 
         $insertRoute = $pdo->prepare('INSERT INTO routes (origin, destination, distance_km, duration, price_ugx) VALUES (?, ?, ?, ?, ?)');
         foreach ($routes as $route) {
@@ -93,11 +103,13 @@ function initDatabase(PDO $pdo)
 
     $countVehicles = $pdo->query('SELECT COUNT(*) AS count FROM vehicles')->fetch()['count'];
     if ($countVehicles == 0) {
+        // Coaches and operators from the UG Express design (36 seats: 9 rows of 4)
         $vehicles = [
-            ['UBB-1001', 'Coaster', 20, 'Great Link', 'John Kato'],
-            ['UBB-1002', 'Hiace', 16, 'Roadmaster', 'David Ssebulime'],
-            ['UBB-1003', 'Skyline', 30, 'Pearl Travel', 'Samuel Okello'],
-            ['UBB-1004', 'Volvo', 22, 'Bus Uganda', 'Moses Tumusiime']
+            ['UBF 892K', 'Scania Marcopolo G7 Luxury', 36, 'Uganda Coach Express', 'Okello David'],
+            ['UBM 501M', 'Isuzu FVR Royal Coach', 36, 'Uganda Coach Express', 'Mukasa Ronald'],
+            ['UBA 104F', 'Scania Touring HD', 36, 'Global Coaches', 'Tumwesigye Alex'],
+            ['UBH 772T', 'Mercedes-Benz Tourismo', 36, 'Link Bus Services', 'Mugisha Brian'],
+            ['UBD 339L', 'Yutong Grand Cruiser', 36, 'YY Coaches', 'Opio Samuel']
         ];
 
         $insertVehicle = $pdo->prepare('INSERT INTO vehicles (reg_number, model, total_seats, operator_name, driver_name) VALUES (?, ?, ?, ?, ?)');
@@ -114,12 +126,14 @@ function initDatabase(PDO $pdo)
 
         $insertTrip = $pdo->prepare('INSERT INTO trips (route_id, vehicle_id, departure_time, arrival_time, price_ugx, available_seats, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
 
-        // One trip per route per day, for the next 7 days (today included)
+        // Three departures per route per day, for the next 7 days (today included)
+        $departures = [[6, 0], [10, 30], [16, 0]];
         for ($day = 0; $day < 7; $day++) {
             foreach ($routes as $index => $route) {
-                $vehicle = $vehicles[$index % count($vehicles)];
-                $dep = (clone $today)->modify('+' . $day . ' day')->setTime(7 + ($index % 4), 30);
-                $arr = (clone $dep)->modify('+' . round($route['distance_km'] / 55 * 60) . ' minutes'); // ~55 km/h average
+              foreach ($departures as $slot => [$hour, $minute]) {
+                $vehicle = $vehicles[($index + $slot) % count($vehicles)];
+                $dep = (clone $today)->modify('+' . $day . ' day')->setTime($hour, $minute);
+                $arr = (clone $dep)->modify('+' . round($route['distance_km'] / 60 * 60) . ' minutes'); // ~60 km/h average
 
                 $insertTrip->execute([
                     $route['id'],
@@ -130,6 +144,7 @@ function initDatabase(PDO $pdo)
                     $vehicle['total_seats'],
                     'SCHEDULED'
                 ]);
+              }
             }
         }
     }
@@ -138,6 +153,12 @@ function initDatabase(PDO $pdo)
     // The login itself is checked against the hard-coded ADMIN_EMAIL / ADMIN_PASSWORD in config.php.
     $insertAdmin = $pdo->prepare('INSERT OR IGNORE INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)');
     $insertAdmin->execute(['Admin', ADMIN_EMAIL, '', password_hash(ADMIN_PASSWORD, PASSWORD_DEFAULT), 'ADMIN']);
+
+    // Demo staff account for the staff portal (ticket verification).
+    // Change or remove it before real use: the admin can add staff from Passengers.
+    // Demo customer for the "Customer" quick-login button on the sign-in page
+    $insertAdmin->execute(['Demo Passenger', 'passenger@ugandabus.com', '0772000000', password_hash('Passenger@123', PASSWORD_DEFAULT), 'CUSTOMER']);
+    $insertAdmin->execute(['Station Staff', 'staff@ugandabus.com', '0700000000', password_hash('Staff@123', PASSWORD_DEFAULT), 'STAFF']);
 
     $pdo->exec('DELETE FROM admin_stats');
     $pdo->exec('INSERT INTO admin_stats (label, value) VALUES ("Trips", (SELECT COUNT(*) FROM trips))');

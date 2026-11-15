@@ -5,7 +5,7 @@
 const SECTION_TITLES = {
   dashboard: 'Dashboard',
   bookings: 'Manage bookings',
-  passengers: 'Manage passengers',
+  passengers: 'Passengers & staff',
   trips: 'Trips & schedules',
   buses: 'Bus fleet',
   routes: 'Routes',
@@ -144,6 +144,7 @@ function normalizeAdminData(raw) {
       name: u.name,
       email: u.email,
       phone: u.phone,
+      role: u.role === 'staff' ? 'staff' : 'customer',
       blocked: Number(u.blocked) === 1
     }))
   };
@@ -263,7 +264,7 @@ function renderDashboard(state) {
   const stats = [
     ['Revenue collected', currency(revenue)],
     ['Active bookings', confirmed.length],
-    ['Registered passengers', state.users.length],
+    ['Registered passengers', state.users.filter((u) => u.role !== 'staff').length],
     ['Scheduled trips', scheduled.length],
     ['Buses in service', `${activeBuses.length} / ${state.buses.length}`],
     ['Pending payments', pending.length]
@@ -439,12 +440,12 @@ function renderPassengers(state) {
   return `
     <div class="toolbar">
       <input type="search" placeholder="Search by name, email or phone" data-filter="passengerSearch" value="${escapeHtml(adminUi.filters.passengerSearch)}" />
-      <button class="primary-btn" data-action="add-passenger">+ Add passenger</button>
+      <button class="primary-btn" data-action="add-passenger">+ Add passenger or staff</button>
     </div>
     <div class="table-card">
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Account</th><th>Bookings</th><th>Total spent</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Account</th><th>Role</th><th>Bookings</th><th>Total spent</th><th>Status</th><th></th></tr></thead>
           <tbody>
             ${passengers.map((p) => `
               <tr>
@@ -452,6 +453,7 @@ function renderPassengers(state) {
                 <td>${escapeHtml(p.email)}</td>
                 <td>${escapeHtml(p.phone || '—')}</td>
                 <td>${p.registered ? 'Registered' : 'Guest'}</td>
+                <td>${p.role === 'staff' ? '<span class="badge warning">Staff</span>' : 'Customer'}</td>
                 <td>${p.bookings}</td>
                 <td>${currency(p.spent)}</td>
                 <td>${statusBadge(p.blocked ? 'BLOCKED' : 'ACTIVE')}</td>
@@ -461,7 +463,7 @@ function renderPassengers(state) {
                     <button class="mini-btn ${p.blocked ? '' : 'danger'}" data-action="toggle-passenger" data-id="${p.id}">${p.blocked ? 'Unblock' : 'Block'}</button>
                     <button class="mini-btn danger" data-action="delete-passenger" data-id="${p.id}">Delete</button>` : ''}
                 </td>
-              </tr>`).join('') || emptyRow(8, 'No passengers found.')}
+              </tr>`).join('') || emptyRow(9, 'No passengers found.')}
           </tbody>
         </table>
       </div>
@@ -477,6 +479,7 @@ function passengerForm(state, id) {
       ${field('Full name', textInput('name', user?.name, 'required'))}
       ${field('Email', textInput('email', user?.email, 'type="email" required'))}
       ${field('Phone', textInput('phone', user?.phone, 'placeholder="e.g. 0772 123456"'))}
+      ${field('Role', selectInput('role', [['customer', 'Customer'], ['staff', 'Staff (can check tickets)']], user?.role || 'customer'))}
       ${field(user ? 'New password (leave blank to keep)' : 'Password', textInput('password', '', 'type="password" autocomplete="new-password"'))}
     `,
     onSubmit: (v) => adminAction({ action: 'savePassenger', id: user?.id, ...v })

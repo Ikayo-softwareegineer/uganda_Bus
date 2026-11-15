@@ -9,7 +9,7 @@ const ADMIN_EMAIL = 'admin@ugandabus.com';
 const ADMIN_PASSWORD = 'Admin@123';
 
 // Bump this when schema.php changes so existing databases are upgraded
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function jsonResponse($data, $status = 200)
 {
@@ -73,6 +73,22 @@ function requireLogin($role = null)
         jsonResponse(['success' => false, 'message' => 'Not allowed'], 403);
     }
     return $user;
+}
+
+// Like requireLogin(), but any of several roles may pass, e.g. ['staff', 'admin']
+function requireAnyRole(array $roles)
+{
+    $user = requireLogin();
+    if (!in_array($user['role'], $roles, true)) {
+        jsonResponse(['success' => false, 'message' => 'Not allowed'], 403);
+    }
+    return $user;
+}
+
+// Same rule on every form that takes a phone number: 07XXXXXXXX or +2567XXXXXXXX
+function isUgandanPhone($phone)
+{
+    return (bool)preg_match('/^(\+256|0)7\d{8}$/', preg_replace('/[\s-]/', '', (string)$phone));
 }
 
 function randomBookingRef()

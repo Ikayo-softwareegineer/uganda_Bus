@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ORDER BY b.id DESC
         ')->fetchAll(),
         'passengers' => $pdo->query("
-            SELECT id, name, email, phone, blocked
+            SELECT id, name, email, phone, blocked, LOWER(role) AS role
             FROM users
             WHERE UPPER(role) <> 'ADMIN'
             ORDER BY name
@@ -278,6 +278,8 @@ switch ($action) {
         $email = strtolower(field($data, 'email'));
         $phone = field($data, 'phone');
         $password = field($data, 'password');
+        // Staff accounts can log in to the staff portal to check tickets
+        $role = strtolower(field($data, 'role')) === 'staff' ? 'STAFF' : 'CUSTOMER';
 
         if (!preg_match("/^[A-Za-z][A-Za-z\\s'.-]*$/", $name)) fail('Enter a valid name (letters only).');
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Enter a valid email address.');
@@ -292,15 +294,15 @@ switch ($action) {
         if ($id) {
             $user = findRow('users', 'id', $id);
             if (!$user || strtoupper($user['role']) === 'ADMIN') fail('Passenger not found.', 404);
-            $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?')->execute([$name, $email, $phone, $id]);
+            $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ?, role = ? WHERE id = ?')->execute([$name, $email, $phone, $role, $id]);
             if ($password !== '') {
                 $pdo->prepare('UPDATE users SET password = ? WHERE id = ?')->execute([password_hash($password, PASSWORD_DEFAULT), $id]);
             }
-            ok('Passenger updated.');
+            ok($role === 'STAFF' ? 'Staff account updated.' : 'Passenger updated.');
         }
-        $pdo->prepare("INSERT INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, 'CUSTOMER')")
-            ->execute([$name, $email, $phone, password_hash($password, PASSWORD_DEFAULT)]);
-        ok('Passenger added.');
+        $pdo->prepare('INSERT INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), $role]);
+        ok($role === 'STAFF' ? 'Staff account added.' : 'Passenger added.');
 
     case 'togglePassenger':
         $user = findRow('users', 'id', $id);

@@ -3,18 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard | Uganda Bus</title>
-    <link rel="stylesheet" href="../css/style.css" />
+    <title>Admin Dashboard | UG Express</title>
+    <link rel="stylesheet" href="../css/ug-express.css" />
+    <link rel="stylesheet" href="../css/admin.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
   </head>
-  <body data-page="admin" class="admin-body">
-    <div class="admin-layout">
-      <aside class="admin-sidebar">
-        <div class="brand admin-brand">
-          <span class="brand-mark">UB</span>
-          <span>Uganda Bus<small>Admin panel</small></span>
-        </div>
+  <body data-page="admin">
+    <!-- Same navigation bar and footer as the rest of the site -->
+    <div id="navbar-container"></div>
 
-        <nav class="admin-nav" aria-label="Admin menu">
+    <div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+      <!-- Admin header banner -->
+      <div class="card admin-hero">
+        <div>
+          <span class="badge badge-gold" style="font-size: 10px;">
+            <i data-lucide="shield-check" style="width: 12px; height: 12px;"></i> System Administrator Portal
+          </span>
+          <h1>Intercity Fleet &amp; Operations Command</h1>
+          <p>Manage bookings, passengers and staff, trips, the bus fleet, routes, payments and reports.</p>
+        </div>
+        <div class="admin-user">
+          <span class="admin-avatar">A</span>
+          <div>
+            <strong id="adminName">Admin</strong>
+            <small id="adminEmail"></small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section tabs -->
+      <nav class="admin-nav" aria-label="Admin menu">
           <a href="#dashboard" data-nav="dashboard">
             <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg>
             Dashboard
@@ -48,31 +66,15 @@
             <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
             Reports
           </a>
+          <a href="staff.html">
+            <svg viewBox="0 0 24 24"><path d="M3 7h18v10H3zM7 7V5h10v2M8 12h8"/></svg>
+            Check tickets
+          </a>
         </nav>
 
-        <a class="admin-logout" href="login.html" data-logout>
-          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-          Logout
-        </a>
-      </aside>
+      <h2 id="adminSectionTitle" class="admin-section-title">Dashboard</h2>
 
-      <div class="admin-main">
-        <header class="admin-header">
-          <div>
-            <span class="eyebrow">Operations</span>
-            <h1 id="adminSectionTitle">Dashboard</h1>
-          </div>
-          <div class="admin-user">
-            <span class="admin-avatar">A</span>
-            <div>
-              <strong id="adminName">Admin</strong>
-              <small id="adminEmail"></small>
-            </div>
-          </div>
-        </header>
-
-
-        <main class="admin-content">
+      <main class="admin-content">
           <section data-section="dashboard" class="admin-section"></section>
           <section data-section="bookings" class="admin-section" hidden></section>
           <section data-section="passengers" class="admin-section" hidden></section>
@@ -82,9 +84,9 @@
           <section data-section="payments" class="admin-section" hidden></section>
           <section data-section="reports" class="admin-section" hidden></section>
         </main>
-
-      </div>
     </div>
+
+    <div id="footer-container"></div>
 
     <dialog id="adminModal" class="admin-modal">
       <form id="adminModalForm" novalidate>
@@ -105,5 +107,12 @@
 
     <script src="../js/site.js"></script>
     <script src="../js/admin.js"></script>
+    <!-- Navigation bar + footer (shared with the other pages) -->
+    <script type="module">
+      import { Auth } from '../js/ug/auth.js';
+      import { renderLayout } from '../js/ug/navbar.js';
+      await Auth.init();
+      renderLayout();
+    </script>
   </body>
 </html>
