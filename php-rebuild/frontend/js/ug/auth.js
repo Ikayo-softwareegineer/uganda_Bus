@@ -81,17 +81,6 @@ export const Auth = {
     throw new Error(res.data.message || 'Registration failed');
   },
 
-  // Quick demo buttons: the demo accounts created with the database (see README)
-  async demoLogin(role) {
-    const accounts = {
-      CUSTOMER: ['passenger@ugandabus.com', 'Passenger@123'],
-      STAFF: ['staff@ugandabus.com', 'Staff@123'],
-      ADMIN: ['admin@ugandabus.com', 'Admin@123'],
-    };
-    const [email, password] = accounts[role] || accounts.CUSTOMER;
-    return await this.login(email, password);
-  },
-
   logout() {
     authAPI.logout(); // ends the PHP session on the server
     authToken = null;

@@ -87,19 +87,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return 'dashboard.html';
   }
 
-  // Quick Demo persona buttons on auth page
-  document.querySelectorAll('.quick-demo-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const role = btn.dataset.role;
-      try {
-        await Auth.demoLogin(role);
-        window.location.href = getRedirectDestination();
-      } catch (err) {
-        alert('Demo login failed: ' + err.message);
-      }
-    });
-  });
-
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }

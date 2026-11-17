@@ -125,14 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Demo pre-fill button
-  const demoRefBtn = document.getElementById('btn-demo-ref');
-  if (demoRefBtn && refInput) {
-    demoRefBtn.addEventListener('click', () => {
-      refInput.value = 'UG-8942-XJ';
-    });
-  }
-
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }

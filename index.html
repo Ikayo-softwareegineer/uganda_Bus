@@ -2,10 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=/php-rebuild/frontend/pages/index.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Uganda Bus</title>
+    <script>
+      if (window.location.protocol !== 'file:') {
+        window.location.replace('/php-rebuild/frontend/pages/index.html');
+      }
+    </script>
   </head>
   <body>
-    <p><a href="/php-rebuild/frontend/pages/index.html">Open Uganda Bus</a></p>
+    <main>
+      <h1>Uganda Bus needs PHP to run</h1>
+      <p>Opening this file directly cannot run the PHP API used by the booking pages.</p>
+      <p>Double-click <code>php-rebuild\start-local.bat</code> to start the site and open it in your browser.</p>
+    </main>
   </body>
 </html>

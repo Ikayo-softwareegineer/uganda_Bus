@@ -18,46 +18,47 @@ This project is a simpler rebuild of the bus booking app using:
 
 ## Run locally
 
-With PHP installed, from the repository root:
+Set `ADMIN_PASSWORD` in the server environment before starting it. In PowerShell,
+you can enter it for the current session with:
 
-```bash
+```powershell
+$env:ADMIN_PASSWORD = Read-Host -Prompt 'Admin password'
 php -S localhost:8000
 ```
 
+On Windows, run `php-rebuild/start-local.bat` from that same PowerShell session
+to start the PHP server and open the site. Do not open an `index.html` file
+directly: browsers do not run the PHP API over `file://`.
+
 Or with Docker (the same setup Render uses):
 
-```bash
+```powershell
 docker build -t uganda-bus .
-docker run -p 8000:80 uganda-bus
+$env:ADMIN_PASSWORD = Read-Host -Prompt 'Admin password'
+docker run -p 8000:80 -e ADMIN_PASSWORD uganda-bus
 ```
 
 Then open http://localhost:8000
 
-The SQLite database (`backend/api/data/bus_system.sqlite`) is created and
-seeded automatically on the first request. `php backend/api/init_db.php`
-re-runs the setup by hand if needed.
+The SQLite database (`backend/api/data/bus_system.sqlite`) is created on the
+first request without sample routes, buses, trips, or accounts.
+`php backend/api/init_db.php` re-runs the setup by hand if needed. Add routes,
+buses, and trips from the admin dashboard before taking bookings.
 
 ## Admin login
 
-The admin account is hard-coded in `backend/api/config.php`:
+The administrator email is fixed in `backend/api/config.php`:
 
-- Email: `admin@ugandabus.com`
-- Password: `Admin@123`
+- Email: `admin@ugbus.com`
+
+The password comes from the `ADMIN_PASSWORD` environment variable and is not
+stored in the repository. Admin login is unavailable until it is configured.
 
 The admin dashboard (`frontend/pages/admin.html`) manages bookings,
 passengers, trips, buses, routes and payments, and shows reports.
 
-## Demo accounts
-
-Created automatically with the database (also on the sign-in page as quick buttons):
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@ugandabus.com` | `Admin@123` |
-| Staff | `staff@ugandabus.com` | `Staff@123` |
-| Customer | `passenger@ugandabus.com` | `Passenger@123` |
-
-The admin can add more staff from **Passengers** (set Role to *Staff*).
+From **Passengers**, the admin can add and manage member and staff accounts.
+Members can also register from the sign-in page.
 
 ## How the frontend is organised
 
@@ -72,6 +73,15 @@ talking to the PHP API with `fetch`.
   - `navbar.js` – shared top menu and footer
 - `frontend/js/admin.js` + `site.js` – the admin dashboard
 - `frontend/images/` – pictures
+
+Trip search and seat selection use the JSON-RPC 2.0 endpoint at
+`backend/api/rpc.php`. Send a `POST` request with `jsonrpc: "2.0"`, a method,
+named `params`, and an `id`. The `getTrips` method accepts optional `origin`,
+`destination`, `date` (`YYYY-MM-DD`), and `passengers` parameters and returns
+`result.trips` and `result.count`. The `getSeats` method accepts `tripId` and
+returns the trip and its currently booked seats in `result.trip`. RPC errors
+use the JSON-RPC `error` object; the frontend API client handles the response
+and maps the trip data for the pages.
 
 | Page | Who | What it does |
 | --- | --- | --- |
@@ -88,8 +98,9 @@ talking to the PHP API with `fetch`.
 
 Payments are **simulated**: no money moves and card or mobile money details are never sent to the server.
 
-If you ran an older version before, delete `backend/api/data/` once so the database is
-recreated with the new routes, coaches and demo accounts.
+On upgrade, legacy demo accounts and bookings are removed. The bundled sample
+routes, buses, and trips are cleared when the database still matches the original
+demo dataset; other operational data is preserved.
 
 ## Deploy on Render
 
@@ -99,6 +110,6 @@ service using the `Dockerfile` in the repository root.
 1. In Render, choose **New > Blueprint** and connect this repository.
 2. Select the `main` branch.
 
-On the free plan Render's disk is temporary, so the database is reset to the
-sample data on every deploy or restart. To keep data, use a paid plan and
-uncomment the `disk` section in `render.yaml`.
+On the free plan Render's disk is temporary, so operational data is reset on
+every deploy or restart. To keep data, use a paid plan and uncomment the `disk`
+section in `render.yaml`.

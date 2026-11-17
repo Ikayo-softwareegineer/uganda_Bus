@@ -37,12 +37,30 @@ async function request(path, { method = 'GET', body } = {}) {
     data = { success: false, message: 'The server sent an unexpected response.' };
   }
 
-  if (!response.ok || data.success === false) {
-    const error = new Error(data.message || `Request failed (${response.status})`);
-    error.response = { status: response.status, data };
+  if (!response.ok || data.success === false || data.error) {
+    const errorData = data.error
+      ? { success: false, message: data.error.message, code: data.error.code }
+      : data;
+    const error = new Error(errorData.message || `Request failed (${response.status})`);
+    error.response = { status: response.status, data: errorData };
     throw error;
   }
   return { data };
+}
+
+let rpcRequestId = 0;
+
+async function rpc(method, params = {}) {
+  const res = await request('rpc.php', {
+    method: 'POST',
+    body: { jsonrpc: '2.0', method, params, id: ++rpcRequestId },
+  });
+  if (!res.data.result) {
+    const error = new Error('The server sent an invalid RPC response.');
+    error.response = { status: 500, data: { success: false, message: error.message } };
+    throw error;
+  }
+  return res.data.result;
 }
 
 // ---------- Converting PHP rows into page objects ----------
@@ -129,7 +147,7 @@ function mapTrip(t) {
       driverName: t.driver_name,
     },
   };
-  // trip.php also sends the booked seats, so the seat map can be drawn
+  // getSeats also sends the booked seats, so the seat map can be drawn
   if (Array.isArray(t.booked_seats)) {
     trip.seats = buildSeats(trip.vehicle.totalSeats || 36, t.booked_seats);
   }
@@ -245,18 +263,14 @@ export const tripAPI = {
   },
 
   searchTrips: async (query = {}) => {
-    const params = new URLSearchParams();
-    Object.entries(query).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') params.append(k, v);
-    });
-    const res = await request(`search.php?${params.toString()}`);
-    const trips = res.data.trips.map(mapTrip);
-    return { data: { success: true, count: trips.length, trips } };
+    const result = await rpc('getTrips', query);
+    const trips = result.trips.map(mapTrip);
+    return { data: { success: true, count: result.count, trips } };
   },
 
   getTripById: async (id) => {
-    const res = await request(`trip.php?id=${encodeURIComponent(id)}`);
-    return { data: { success: true, trip: mapTrip(res.data.trip) } };
+    const result = await rpc('getSeats', { tripId: id });
+    return { data: { success: true, trip: mapTrip(result.trip) } };
   },
 };
 

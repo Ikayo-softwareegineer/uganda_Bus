@@ -278,8 +278,10 @@ switch ($action) {
         $email = strtolower(field($data, 'email'));
         $phone = field($data, 'phone');
         $password = field($data, 'password');
+        $requestedRole = strtolower(field($data, 'role'));
+        if (!in_array($requestedRole, ['member', 'customer', 'staff'], true)) fail('Choose a valid account role.');
         // Staff accounts can log in to the staff portal to check tickets
-        $role = strtolower(field($data, 'role')) === 'staff' ? 'STAFF' : 'CUSTOMER';
+        $role = $requestedRole === 'staff' ? 'STAFF' : 'CUSTOMER';
 
         if (!preg_match("/^[A-Za-z][A-Za-z\\s'.-]*$/", $name)) fail('Enter a valid name (letters only).');
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Enter a valid email address.');

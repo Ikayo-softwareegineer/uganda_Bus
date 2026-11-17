@@ -440,7 +440,7 @@ function renderPassengers(state) {
   return `
     <div class="toolbar">
       <input type="search" placeholder="Search by name, email or phone" data-filter="passengerSearch" value="${escapeHtml(adminUi.filters.passengerSearch)}" />
-      <button class="primary-btn" data-action="add-passenger">+ Add passenger or staff</button>
+      <button class="primary-btn" data-action="add-passenger">+ Add member or staff</button>
     </div>
     <div class="table-card">
       <div class="table-wrap">
@@ -453,7 +453,7 @@ function renderPassengers(state) {
                 <td>${escapeHtml(p.email)}</td>
                 <td>${escapeHtml(p.phone || '—')}</td>
                 <td>${p.registered ? 'Registered' : 'Guest'}</td>
-                <td>${p.role === 'staff' ? '<span class="badge warning">Staff</span>' : 'Customer'}</td>
+                <td>${!p.registered ? '—' : p.role === 'staff' ? '<span class="badge warning">Staff</span>' : 'Member'}</td>
                 <td>${p.bookings}</td>
                 <td>${currency(p.spent)}</td>
                 <td>${statusBadge(p.blocked ? 'BLOCKED' : 'ACTIVE')}</td>
@@ -474,12 +474,12 @@ function renderPassengers(state) {
 function passengerForm(state, id) {
   const user = id ? state.users.find((u) => u.id === Number(id)) : null;
   openModal({
-    title: user ? 'Edit passenger' : 'Add passenger',
+    title: user ? 'Edit account' : 'Add member or staff',
     body: `
       ${field('Full name', textInput('name', user?.name, 'required'))}
       ${field('Email', textInput('email', user?.email, 'type="email" required'))}
       ${field('Phone', textInput('phone', user?.phone, 'placeholder="e.g. 0772 123456"'))}
-      ${field('Role', selectInput('role', [['customer', 'Customer'], ['staff', 'Staff (can check tickets)']], user?.role || 'customer'))}
+      ${field('Role', selectInput('role', [['member', 'Member'], ['staff', 'Staff (can check tickets)']], user?.role === 'staff' ? 'staff' : 'member'))}
       ${field(user ? 'New password (leave blank to keep)' : 'Password', textInput('password', '', 'type="password" autocomplete="new-password"'))}
     `,
     onSubmit: (v) => adminAction({ action: 'savePassenger', id: user?.id, ...v })

@@ -5,6 +5,9 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /php-rebuild/backend/api/routes.php
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false
     # On the free plan the SQLite file is reset on every deploy/restart.
     # On a paid plan, uncomment this to keep the database between deploys:
     # disk:

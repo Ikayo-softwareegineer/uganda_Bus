@@ -4,12 +4,12 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Hard-coded admin login
-const ADMIN_EMAIL = 'admin@ugandabus.com';
-const ADMIN_PASSWORD = 'Admin@123';
+// Keep the administrator password in the server environment, not source control.
+const ADMIN_EMAIL = 'admin@ugbus.com';
+define('ADMIN_PASSWORD', getenv('ADMIN_PASSWORD') ?: '');
 
 // Bump this when schema.php changes so existing databases are upgraded
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function jsonResponse($data, $status = 200)
 {
@@ -39,8 +39,13 @@ $pdo->exec('PRAGMA busy_timeout = 5000');
 
 // Create or upgrade the database automatically on first use
 require_once __DIR__ . '/schema.php';
-if ((int)$pdo->query('PRAGMA user_version')->fetchColumn() < SCHEMA_VERSION) {
+$schemaVersion = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
+if ($schemaVersion < SCHEMA_VERSION) {
     initDatabase($pdo);
+    if ($schemaVersion < 4) {
+        removeLegacyDemoData($pdo);
+    }
+    refreshAdminStats($pdo);
     $pdo->exec('PRAGMA user_version = ' . SCHEMA_VERSION);
 }
 
