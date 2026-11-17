@@ -57,13 +57,17 @@ $customerName = trim($data['customerName'] ?? '');
 $phone = trim($data['phone'] ?? '');
 $email = trim($data['email'] ?? '');
 $paymentMethod = trim($data['paymentMethod'] ?? 'MTN_MOMO');
-$seats = array_values(array_unique(array_filter((array)($data['seats'] ?? []))));
+$seats = array_values(array_filter((array)($data['seats'] ?? []), fn($seat) => trim((string)$seat) !== ''));
 
 // Optional: one traveller name per seat (same order as the seats)
 $passengerNames = array_map(fn($n) => trim((string)$n), (array)($data['passengerNames'] ?? []));
 
 if ($tripId <= 0 || $customerName === '' || $phone === '' || $email === '' || count($seats) === 0) {
     jsonResponse(['success' => false, 'message' => 'Please complete all booking details'], 400);
+}
+
+if (count($seats) !== count(array_unique($seats))) {
+    jsonResponse(['success' => false, 'message' => 'A seat can only be selected once per booking'], 400);
 }
 
 if ($passengerNames) {
@@ -82,8 +86,10 @@ if (!in_array($paymentMethod, $allowedPayments)) {
     jsonResponse(['success' => false, 'message' => 'Invalid payment method'], 400);
 }
 
-// Do everything in one transaction so two people cannot grab the same seat
-$pdo->beginTransaction();
+// SQLite's default deferred transaction lets concurrent requests both read a
+// seat as free. IMMEDIATE reserves the writer before that read, serializing
+// the availability check and booking insert across PHP workers/connections.
+$pdo->exec('BEGIN IMMEDIATE TRANSACTION');
 
 $stmt = $pdo->prepare('SELECT * FROM trips WHERE id = :id');
 $stmt->execute([':id' => $tripId]);
