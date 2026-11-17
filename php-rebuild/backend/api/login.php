@@ -17,8 +17,21 @@ $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
-if (!$user || !password_verify($password, $user['password'])) {
+if ($email === ADMIN_EMAIL) {
+    if (ADMIN_PASSWORD === '') {
+        jsonResponse(['success' => false, 'message' => 'The administrator password is not configured on the server.'], 503);
+    }
+    // The administrator password comes from the server environment.
+    if ($password !== ADMIN_PASSWORD) {
+        jsonResponse(['success' => false, 'message' => 'Invalid admin email or password.'], 401);
+    }
+    $user = ['id' => $user['id'] ?? 0, 'name' => 'Admin', 'email' => ADMIN_EMAIL, 'role' => 'admin'];
+} elseif (!$user || !password_verify($password, $user['password'])) {
     jsonResponse(['success' => false, 'message' => 'Invalid email or password. If you are new, please register first.'], 401);
+} elseif (strtoupper($user['role']) === 'ADMIN') {
+    jsonResponse(['success' => false, 'message' => 'Invalid admin email or password.'], 401);
+} elseif (!empty($user['blocked'])) {
+    jsonResponse(['success' => false, 'message' => 'This account has been suspended. Please contact Uganda Bus support.'], 403);
 }
 
 // Remember the user on the server for later requests (booking, admin)

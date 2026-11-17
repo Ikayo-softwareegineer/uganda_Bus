@@ -23,7 +23,7 @@ if (!$trip) {
 }
 
 // Collect every seat already booked on this trip, e.g. ["1A", "2C"]
-$seatsStmt = $pdo->prepare('SELECT seats FROM bookings WHERE trip_id = ?');
+$seatsStmt = $pdo->prepare("SELECT seats FROM bookings WHERE trip_id = ? AND status = 'CONFIRMED'");
 $seatsStmt->execute([$id]);
 $bookedSeats = [];
 foreach ($seatsStmt->fetchAll() as $row) {

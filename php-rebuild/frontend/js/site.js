@@ -1,12 +1,12 @@
 // ============================================================
-// Uganda Bus - frontend logic (client)
-// All data now comes from the PHP API (server) and SQLite database.
-// localStorage only remembers WHO is logged in, so pages can show
-// the right links; the server checks the real login on every request.
+// Uganda Bus - shared helpers for the admin dashboard (admin.html)
+// The customer and staff pages use the modules in js/ug/ instead.
+// The server checks the real login (PHP session) on every request;
+// localStorage only remembers who is logged in so the page can greet them.
 // ============================================================
 
 const API = '../../backend/api/';
-const STORAGE_KEY = 'ugandaBusBooking';
+const STORAGE_KEY = 'ugandaBusBooking'; // written by js/ug/api.js when someone logs in
 
 // ---------- Talking to the server ----------
 
@@ -24,7 +24,7 @@ async function api(path, options = {}) {
   try {
     response = await fetch(API + path, settings);
   } catch (error) {
-    alert('Cannot reach the server. Make sure Apache (XAMPP) is running.');
+    alert('Cannot reach the server. Make sure the PHP server is running.');
     throw error;
   }
 
@@ -35,100 +35,42 @@ async function api(path, options = {}) {
     data = { success: false, message: 'Unexpected server response.' };
   }
 
-  // Server says we are not logged in any more -> go to login
-  if (response.status === 401 && !path.startsWith('login') && !path.startsWith('register')) {
+  // Server says we are not logged in any more -> go to the sign-in page
+  if (response.status === 401) {
     setCurrentUser(null);
-    const redirect = window.location.pathname.split('/').pop() + window.location.search;
-    window.location.href = `login.html?redirect=${encodeURIComponent(redirect)}`;
+    window.location.href = 'auth.html?redirect=admin.html';
   }
 
   return { ok: response.ok && data.success !== false, status: response.status, data };
 }
 
-// Convert a trip row from the database into the shape the pages use
-function normalizeTrip(row) {
-  return {
-    id: row.id,
-    origin: row.origin,
-    destination: row.destination,
-    departureTime: String(row.departure_time).replace(' ', 'T'),
-    arrivalTime: String(row.arrival_time).replace(' ', 'T'),
-    operator: row.operator_name,
-    price: Number(row.price_ugx),
-    seatsAvailable: Number(row.available_seats),
-    totalSeats: Number(row.total_seats || 16),
-    bookedSeats: row.booked_seats || []
-  };
-}
-
-async function fetchTrip(id) {
-  const result = await api(`trip.php?id=${encodeURIComponent(id)}`);
-  return result.ok ? normalizeTrip(result.data.trip) : null;
-}
-
-// ---------- Who is logged in (cached in the browser) ----------
-
-function getState() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { user: null };
-  } catch (error) {
-    return { user: null };
-  }
-}
-
-function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
+// ---------- Who is logged in ----------
 
 function getCurrentUser() {
-  return getState().user;
+  try {
+    return (JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}).user || null;
+  } catch (error) {
+    return null;
+  }
 }
 
 function setCurrentUser(user) {
-  saveState({ user });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ user }));
 }
 
-function getRoleHome(role) {
-  return role === 'admin' ? 'admin.html' : 'index.html';
-}
-
-function requireRole(page) {
+// Only the admin may open admin.html; staff go to their portal, everyone else signs in
+function requireAdmin() {
   const user = getCurrentUser();
-  const passengerPages = ['search', 'seats', 'checkout', 'confirmation'];
-
-  if (page === 'home' && user && user.role === 'admin') {
-    window.location.href = 'admin.html';
-    return false;
+  if (user && user.role === 'admin') return true;
+  if (user && user.role === 'staff') {
+    window.location.href = 'staff.html';
+  } else {
+    window.location.href = 'auth.html?redirect=admin.html';
   }
-
-  if (page === 'admin') {
-    if (user && user.role === 'admin') return true;
-    window.location.href = user ? 'index.html' : 'login.html?redirect=admin.html';
-    return false;
-  }
-
-  if (passengerPages.includes(page)) {
-    if (user && user.role === 'customer') return true;
-    const redirect = `${page}.html${window.location.search}`;
-    window.location.href = `login.html?redirect=${encodeURIComponent(redirect)}`;
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
-function initLogout() {
-  document.querySelectorAll('[data-logout]').forEach((link) => {
-    link.addEventListener('click', async (event) => {
-      event.preventDefault();
-      await api('logout.php', { method: 'POST' }).catch(() => {});
-      setCurrentUser(null);
-      window.location.href = 'login.html';
-    });
-  });
-}
-
-// ---------- Formatting helpers ----------
+// ---------- Formatting helpers (used by admin.js) ----------
 
 function currency(value) {
   return new Intl.NumberFormat('en-UG', {
@@ -641,20 +583,8 @@ function initRegisterPage() {
 
 // ---------- Start ----------
 
-function initPage() {
-  const page = document.body.dataset.page;
-
-  initLogout();
-  if (!requireRole(page)) return;
-
-  if (page === 'home') initHomePage();
-  if (page === 'search') renderSearchResults();
-  if (page === 'seats') renderSeatSelection();
-  if (page === 'checkout') renderCheckoutPage();
-  if (page === 'confirmation') renderConfirmationPage();
-  if (page === 'admin') renderAdminPage();
-  if (page === 'login') initLoginPage();
-  if (page === 'register') initRegisterPage();
-}
-
-document.addEventListener('DOMContentLoaded', initPage);
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.body.dataset.page !== 'admin') return;
+  if (!requireAdmin()) return;
+  if (typeof initAdminDashboard === 'function') initAdminDashboard();
+});

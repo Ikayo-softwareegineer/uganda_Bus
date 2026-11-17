@@ -1,0 +1,72 @@
+# Ticket Check Socket Server (TCP)
+
+Conductors at the bus station connect to this TCP server and check passenger
+tickets by booking reference. It uses the same SQLite database as the website
+(`backend/api/data/bus_system.sqlite`), so a booking made online can be checked
+at the station straight away.
+
+| File                   | Role                                         | Socket calls used                                                                                                   |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ticket_server.php`    | Server: waits for conductors, checks tickets | `socket_create` → `socket_bind` → `socket_listen` → `socket_accept` → `socket_read`/`socket_write` → `socket_close` |
+| `conductor_client.php` | Client: used by a conductor                  | `socket_create` → `socket_connect` → `socket_write`/`socket_read` → `socket_close`                                  |
+
+- **Transport:** TCP stream socket (`AF_INET`, `SOCK_STREAM`), port **5050**.
+- **Concurrency:** `socket_select()` lets one server process serve many conductors at the same time.
+- **Check-ins** are saved to `bookings.verified_at`, shared with the staff web portal. A ticket boarded through TCP is also shown as used in the website, and vice versa.
+
+## Run (Windows / XAMPP)
+
+From the `uganda_Bus` folder:
+
+```bash
+# 1. once: the database must exist
+D:\xampp\php\php.exe php-rebuild\backend\api\init_db.php
+
+# 2. terminal 1 - start the server (Ctrl+C to stop)
+D:\xampp\php\php.exe php-rebuild\socket-server\ticket_server.php
+
+# 3. terminal 2 (or another PC on the same network) - a conductor
+D:\xampp\php\php.exe php-rebuild\socket-server\conductor_client.php 127.0.0.1 5050
+```
+
+`telnet <server-ip> 5050`, or PuTTY with connection type **Raw**, also work as a client.
+
+If you see "sockets extension is off", open `D:\xampp\php\php.ini`, remove the `;` in front of
+`extension=sockets`, and run the command again. If Windows Firewall asks, allow PHP on
+private networks so conductors on other PCs can connect.
+
+## Protocol
+
+One command per line, one reply line per command.
+
+| Command       | What it does                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| `CHECK <ref>` | Looks the ticket up. Changes nothing.                                                                |
+| `BOARD <ref>` | Lets the passenger board and records the check-in. Works **once** per ticket (SQLite write transaction shared with the website). Cancelled tickets are rejected. |
+| `HELP`        | Lists the commands.                                                                                  |
+| `QUIT`        | Disconnects.                                                                                         |
+
+`<ref>` can be the booking reference (`UG-KT-4821-QB`, any letter case) or the full text read from the receipt QR code.
+
+| Reply       | Meaning                                        |
+| ----------- | ---------------------------------------------- |
+| `VALID`     | Real ticket, not used yet                      |
+| `BOARDED`   | Check-in saved, the passenger may board        |
+| `USED`      | Ticket already used, with the time it was used |
+| `INVALID`   | No such booking, or not a booking reference    |
+| `EXPIRED`   | The trip date has passed                       |
+| `WRONG_DAY` | The ticket is for a later day (BOARD only)     |
+| `ERROR`     | Bad command or a server problem                |
+
+Example:
+
+```
+conductor> CHECK UG-KT-4821-QB
+VALID | UG-KT-4821-QB | John Doe | Kampala -> Jinja | 2026-11-16 23:30 | Bus UBB-1003 | Seats 1A,1B | PAID
+conductor> BOARD UG-KT-4821-QB
+BOARDED | UG-KT-4821-QB | John Doe | Kampala -> Jinja | 2026-11-16 23:30 | Bus UBB-1003 | Seats 1A,1B | PAID
+conductor> BOARD UG-KT-4821-QB
+USED | Already boarded at 2026-11-16 19:23:40 | UG-KT-4821-QB | John Doe | ...
+```
+
+For a "pay at station" booking, the reply ends with `COLLECT CASH UGX ...`.
