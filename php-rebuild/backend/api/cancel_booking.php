@@ -16,8 +16,9 @@ if ($ref === '') {
     jsonResponse(['success' => false, 'message' => 'Booking reference is required'], 400);
 }
 
-// Cancelling and releasing seats happen together or not at all
-$pdo->beginTransaction();
+// Serialize cancellation with bookings so a released seat cannot race a new
+// reservation while availability is being updated.
+$pdo->exec('BEGIN IMMEDIATE TRANSACTION');
 
 $stmt = $pdo->prepare('
     SELECT b.*, t.departure_time

@@ -12,7 +12,7 @@ at the station straight away.
 
 - **Transport:** TCP stream socket (`AF_INET`, `SOCK_STREAM`), port **5050**.
 - **Concurrency:** `socket_select()` lets one server process serve many conductors at the same time.
-- **Check-ins** are saved in a new table `ticket_checks`, which the server creates itself. No existing table or file is changed.
+- **Check-ins** are saved to `bookings.verified_at`, shared with the staff web portal. A ticket boarded through TCP is also shown as used in the website, and vice versa.
 
 ## Run (Windows / XAMPP)
 
@@ -42,7 +42,7 @@ One command per line, one reply line per command.
 | Command       | What it does                                                                                         |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
 | `CHECK <ref>` | Looks the ticket up. Changes nothing.                                                                |
-| `BOARD <ref>` | Lets the passenger board and records the check-in. Works **once** per ticket (database transaction). |
+| `BOARD <ref>` | Lets the passenger board and records the check-in. Works **once** per ticket (SQLite write transaction shared with the website). Cancelled tickets are rejected. |
 | `HELP`        | Lists the commands.                                                                                  |
 | `QUIT`        | Disconnects.                                                                                         |
 
