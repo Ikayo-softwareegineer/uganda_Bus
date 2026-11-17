@@ -44,14 +44,9 @@ const MAX_LINE = 1024;                   // longest command accepted
 
 $port = isset($argv[1]) ? (int)$argv[1] : DEFAULT_PORT;
 
-// Own table for check-ins, so the existing tables and init_db.php stay untouched.
+// Share the booking check-in fields with the staff web portal. This keeps a
+// ticket from being boarded once over TCP and again through the website.
 $pdo->setAttribute(PDO::ATTR_TIMEOUT, 5);           // wait if the website is writing at the same moment
-$pdo->exec('CREATE TABLE IF NOT EXISTS ticket_checks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    booking_ref TEXT NOT NULL UNIQUE,
-    conductor_ip TEXT NOT NULL,
-    checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);');
 
 // ---------------------------------------------------------------- 1. socket()
 $server = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);   // TCP stream socket
@@ -184,13 +179,13 @@ function findTicket(string $ref): ?array
     global $pdo;
     $stmt = $pdo->prepare(
         'SELECT b.booking_ref, b.user_name, b.seats, b.total_amount, b.payment_status,
+                b.status,
                 t.departure_time, r.origin, r.destination, v.reg_number,
-                c.checked_at
+                b.verified_at AS checked_at
          FROM bookings b
          JOIN trips t    ON t.id = b.trip_id
          JOIN routes r   ON r.id = t.route_id
          JOIN vehicles v ON v.id = t.vehicle_id
-         LEFT JOIN ticket_checks c ON c.booking_ref = b.booking_ref
          WHERE b.booking_ref = ?'
     );
     $stmt->execute([$ref]);
@@ -221,6 +216,9 @@ function checkTicket(string $ref): string
     if (!$t) {
         return "INVALID | $ref | No such booking";
     }
+    if ($t['status'] === 'CANCELLED') {
+        return 'INVALID | Booking was cancelled | ' . describe($t);
+    }
     if ($t['checked_at']) {
         return 'USED | Already boarded at ' . $t['checked_at'] . ' | ' . describe($t);
     }
@@ -235,13 +233,18 @@ function checkTicket(string $ref): string
 function boardTicket(string $ref, string $conductor): string
 {
     global $pdo;
-    $pdo->beginTransaction();
+    // Acquire SQLite's write reservation before reading the check-in state.
+    // The conditional update also protects against the web portal scanning
+    // this ticket at the same time.
+    $pdo->exec('BEGIN IMMEDIATE TRANSACTION');
     try {
         $t = findTicket($ref);
         $travelDay = $t ? substr($t['departure_time'], 0, 10) : '';
 
         if (!$t) {
             $reply = "INVALID | $ref | No such booking";
+        } elseif ($t['status'] === 'CANCELLED') {
+            $reply = 'INVALID | Booking was cancelled | ' . describe($t);
         } elseif ($t['checked_at']) {
             $reply = 'USED | Already boarded at ' . $t['checked_at'] . ' | ' . describe($t);
         } elseif ($travelDay < date('Y-m-d')) {
@@ -249,8 +252,13 @@ function boardTicket(string $ref, string $conductor): string
         } elseif ($travelDay > date('Y-m-d')) {
             $reply = 'WRONG_DAY | Ticket is for ' . $travelDay . ' | ' . describe($t);
         } else {
-            $insert = $pdo->prepare('INSERT INTO ticket_checks (booking_ref, conductor_ip, checked_at) VALUES (?, ?, ?)');
-            $insert->execute([$ref, $conductor, date('Y-m-d H:i:s')]);
+            $verifiedAt = date('Y-m-d H:i:s');
+            $mark = $pdo->prepare('UPDATE bookings SET verified_at = ?, verified_by = NULL WHERE booking_ref = ? AND verified_at IS NULL AND status = \'CONFIRMED\'');
+            $mark->execute([$verifiedAt, $ref]);
+            if ($mark->rowCount() !== 1) {
+                $pdo->rollBack();
+                return 'USED | Ticket was just checked by another conductor';
+            }
             $pdo->commit();
             return 'BOARDED | ' . describe($t);
         }
