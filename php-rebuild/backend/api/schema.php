@@ -280,3 +280,103 @@ function addColumnIfMissing(PDO $pdo, $table, $column, $definition)
         $pdo->exec("ALTER TABLE $table ADD COLUMN $column $definition");
     }
 }
+
+function seedSchedules(PDO $pdo)
+{
+    // Do not duplicate data if schedules already exist.
+    $tripCount = (int)$pdo->query('SELECT COUNT(*) FROM trips')->fetchColumn();
+
+    if ($tripCount > 0) {
+        return;
+    }
+
+    $routes = [
+        ['Kampala', 'Mbarara', 270, '4h 30m', 30000],
+        ['Kampala', 'Kabale', 410, '7h 00m', 45000],
+        ['Kampala', 'Fort Portal', 300, '5h 00m', 35000],
+        ['Kampala', 'Gulu', 335, '5h 30m', 40000],
+        ['Kampala', 'Jinja', 85, '2h 00m', 15000],
+        ['Kampala', 'Masaka', 130, '2h 30m', 20000]
+    ];
+
+    $vehicles = [
+        ['UBF 892K', 'Scania Marcopolo G7 Luxury', 36, 'Uganda Coach Express', 'Okello David'],
+        ['UBM 501M', 'Isuzu FVR Royal Coach', 36, 'Uganda Coach Express', 'Mukasa Ronald'],
+        ['UBA 104F', 'Scania Touring HD', 36, 'Global Coaches', 'Tumwesigye Alex'],
+        ['UBH 772T', 'Mercedes-Benz Tourismo', 36, 'Link Bus Services', 'Mugisha Brian'],
+        ['UBD 339L', 'Yutong Grand Cruiser', 36, 'YY Coaches', 'Opio Samuel']
+    ];
+
+    $routeInsert = $pdo->prepare(
+        'INSERT INTO routes (origin, destination, distance_km, duration, price_ugx, status)
+         VALUES (?, ?, ?, ?, ?, "ACTIVE")'
+    );
+
+    $routeIds = [];
+
+    foreach ($routes as $route) {
+        $routeInsert->execute($route);
+        $routeIds[] = (int)$pdo->lastInsertId();
+    }
+
+    $vehicleInsert = $pdo->prepare(
+        'INSERT INTO vehicles (reg_number, model, total_seats, operator_name, driver_name, status, bus_type)
+         VALUES (?, ?, ?, ?, ?, "ACTIVE", "Standard")'
+    );
+
+    $vehicleIds = [];
+
+    foreach ($vehicles as $vehicle) {
+        $vehicleInsert->execute($vehicle);
+        $vehicleIds[] = (int)$pdo->lastInsertId();
+    }
+
+    $tripInsert = $pdo->prepare(
+        'INSERT INTO trips
+         (route_id, vehicle_id, departure_time, arrival_time, price_ugx, available_seats, status)
+         VALUES (?, ?, ?, ?, ?, ?, "SCHEDULED")'
+    );
+
+    $departureTimes = ['06:00:00', '10:30:00', '16:00:00'];
+
+    // Generate trips for the next 7 days.
+    for ($day = 0; $day < 7; $day++) {
+
+        $date = new DateTime('today');
+        $date->modify("+$day days");
+
+        foreach ($routes as $index => $route) {
+
+            foreach ($departureTimes as $time) {
+
+                $departure = new DateTime(
+                    $date->format('Y-m-d') . ' ' . $time
+                );
+
+                // Route duration is stored as hours and minutes.
+                preg_match('/(\d+)h\s*(\d+)m/', $route[3], $matches);
+
+                $hours = (int)($matches[1] ?? 0);
+                $minutes = (int)($matches[2] ?? 0);
+
+                $arrival = clone $departure;
+                $arrival->modify("+$hours hours");
+                $arrival->modify("+$minutes minutes");
+
+                $vehicleIndex = ($index + $day) % count($vehicleIds);
+
+                $tripInsert->execute([
+                    $routeIds[$index],
+                    $vehicleIds[$vehicleIndex],
+                    $departure->format('Y-m-d H:i:s'),
+                    $arrival->format('Y-m-d H:i:s'),
+                    $route[4],
+                    $vehicles[$vehicleIndex][2]
+                ]);
+            }
+        }
+    }
+
+    refreshAdminStats($pdo);
+}
+
