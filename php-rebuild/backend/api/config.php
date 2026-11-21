@@ -9,7 +9,7 @@ const ADMIN_EMAIL = 'admin@ugbus.com';
 define('ADMIN_PASSWORD', getenv('ADMIN_PASSWORD') ?: '');
 
 // Bump this when schema.php changes so existing databases are upgraded
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function jsonResponse($data, $status = 200)
 {
