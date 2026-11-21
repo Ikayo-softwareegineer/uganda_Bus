@@ -42,13 +42,17 @@ require_once __DIR__ . '/schema.php';
 $schemaVersion = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
 if ($schemaVersion < SCHEMA_VERSION) {
     initDatabase($pdo);
+
     if ($schemaVersion < 4) {
         removeLegacyDemoData($pdo);
     }
+
+    // Insert initial bus schedules if the database is empty.
+    seedSchedules($pdo);
+
     refreshAdminStats($pdo);
     $pdo->exec('PRAGMA user_version = ' . SCHEMA_VERSION);
 }
-
 // Sessions remember who is logged in between requests
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
