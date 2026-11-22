@@ -1,0 +1,146 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concurrency Lab | UG Express</title>
+
+    <link rel="stylesheet" href="../css/ug-express.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+    <div id="navbar-container"></div>
+
+    <main class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+
+        <!-- Page Header -->
+        <div class="card" style="padding: 2rem; margin-bottom: 2rem; border-left: 5px solid var(--must-navy);">
+            <span class="badge badge-navy">CLIENT-SERVER PRACTICAL</span>
+
+            <h1 style="font-size: 1.8rem; font-weight: 800; margin-top: 0.75rem;">
+                Concurrent Processes Laboratory
+            </h1>
+
+            <p style="color: var(--text-muted); margin-top: 0.5rem;">
+                Simulate multiple bus passengers making requests simultaneously
+                and observe how the server handles concurrent operations.
+            </p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" style="margin-bottom: 2rem;">
+
+            <div class="card text-center" style="padding: 1.5rem;">
+                <i data-lucide="users" style="width: 25px; height: 25px;"></i>
+                <h2 id="total-clients" style="font-size: 2rem; font-weight: 800;">0</h2>
+                <p style="color: var(--text-muted); font-size: 12px;">Total Clients</p>
+                </div>
+
+            <div class="card text-center" style="padding: 1.5rem;">
+                <i data-lucide="check-circle" style="width: 25px; height: 25px;"></i>
+                <h2 id="successful-requests" style="font-size: 2rem; font-weight: 800;">0</h2>
+                <p style="color: var(--text-muted); font-size: 12px;">Successful Requests</p>
+            </div>
+
+            <div class="card text-center" style="padding: 1.5rem;">
+                <i data-lucide="x-circle" style="width: 25px; height: 25px;"></i>
+                <h2 id="failed-requests" style="font-size: 2rem; font-weight: 800;">0</h2>
+                <p style="color: var(--text-muted); font-size: 12px;">Failed Requests</p>
+            </div>
+
+        </div>
+
+        <!-- Experiment Configuration -->
+        <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+
+            <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1.25rem;">
+                <i data-lucide="settings"></i>
+                Experiment Configuration
+            </h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                <div class="input-group">
+                    <label class="input-label">Number of concurrent clients</label>
+                    <input
+                        type="number"
+                        id="client-count"
+                        class="form-input"
+                        min="2"
+                        max="50"
+                        value="10"
+                    >
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Experiment type</label>
+                    <select id="experiment-type" class="form-select">
+                <option value="same-seat">Compete for the same seat</option>
+                <option value="independent">Independent requests</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.5rem;">
+
+                <button id="start-test" class="btn-primary" type="button">
+                    <i data-lucide="play"></i>
+                    Start Experiment
+                </button>
+
+                <button id="reset-test" class="btn-secondary" type="button">
+                    <i data-lucide="refresh-cw"></i>
+                    Reset Results
+                </button>
+
+            </div>
+
+            <p id="experiment-status" style="font-size: 13px; margin-top: 1rem; color: var(--text-muted);">
+                Ready to run an experiment.
+            </p>
+
+        </div>
+
+        <!-- Results -->
+        <div class="card" style="padding: 1.5rem;">
+
+            <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem;">
+                Concurrent Client Activity
+            </h2>
+
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 0.75rem;">Client</th>
+                            <th style="text-align: left; padding: 0.75rem;">Status</th>
+                            <th style="text-align: left; padding: 0.75rem;">HTTP Response</th>
+                            <th style="text-align: left; padding: 0.75rem;">Duration</th>
+                            <th style="text-align: left; padding: 0.75rem;">Result</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="client-results">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                No experiment has been started.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../js/ug/concurrency-lab.js"></script>
+
+</body>
+</html>
+```
