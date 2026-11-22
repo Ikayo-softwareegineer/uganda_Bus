@@ -2,144 +2,88 @@
 
 /**
  * UG Express - Concurrency Engine
- * -----------------------------------
- * Demonstrates real concurrent HTTP requests,
- * shared-resource contention and mutual exclusion.
- *
- * This is an isolated laboratory.
- * It DOES NOT modify real bus bookings.
+ * Real HTTP concurrency + mutual exclusion experiment.
+ * Isolated from the real bus booking system.
  */
+
+require __DIR__ . '/config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-// --------------------------------------------------
-// 1. Enable the lab only when explicitly configured
-// --------------------------------------------------
-
-$enabled = getenv('CONCURRENCY_LAB_ENABLED');
-
-if ($enabled !== 'true') {
-    http_response_code(503);
-
-    echo json_encode([
-        'success' => false,
-        'message' => 'Concurrency laboratory is disabled.'
-    ]);
-
-    exit;
-}
-
-// --------------------------------------------------
-// 2. Accept POST requests only
-// --------------------------------------------------
-
+// 1. POST requests only
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-
-    echo json_encode([
+    jsonResponse([
         'success' => false,
         'message' => 'Only POST requests are allowed.'
-    ]);
-
-    exit;
+    ], 405);
 }
 
-// --------------------------------------------------
-// 3. Read JSON input
-// --------------------------------------------------
+// 2. Require an administrator
+$user = requireLogin('admin');
 
-$input = json_decode(
-    file_get_contents('php://input'),
-    true
-);
+// 3. Lab disabled by default
+if (getenv('CONCURRENCY_LAB_ENABLED') !== 'true') {
+    jsonResponse([
+        'success' => false,
+        'message' => 'Concurrency laboratory is disabled.'
+    ], 503);
+}
+
+// 4. Read request data
+$input = json_decode(file_get_contents('php://input'), true);
 
 if (!is_array($input)) {
-    http_response_code(400);
-
-    echo json_encode([
+    jsonResponse([
         'success' => false,
         'message' => 'Invalid JSON request.'
-    ]);
-
-    exit;
+    ], 400);
 }
 
 $action = $input['action'] ?? '';
 $clientId = trim((string)($input['clientId'] ?? ''));
 
-// --------------------------------------------------
-// 4. Validate action
-// --------------------------------------------------
-
 if (!in_array($action, ['reset', 'claim'], true)) {
-    http_response_code(400);
-
-    echo json_encode([
+    jsonResponse([
         'success' => false,
         'message' => 'Unknown laboratory action.'
-    ]);
-
-    exit;
+    ], 400);
 }
 
-if ($action === 'claim') {
-    if ($clientId === '' || strlen($clientId) > 50) {
-        http_response_code(400);
-
-        echo json_encode([
-            'success' => false,
-            'message' => 'A valid client ID is required.'
-        ]);
-
-        exit;
-    }
+if ($action === 'claim' && ($clientId === '' || strlen($clientId) > 50)) {
+    jsonResponse([
+        'success' => false,
+        'message' => 'A valid client ID is required.'
+    ], 400);
 }
 
-// --------------------------------------------------
-// 5. Shared laboratory storage
-// --------------------------------------------------
-
-// This file stores the state of our shared resource.
-// It is separate from the bus booking database.
-
+// 5. Separate lab state file
 $stateFile = sys_get_temp_dir() . '/ugexpress_concurrency_lab.json';
 
 $file = fopen($stateFile, 'c+');
 
 if (!$file) {
-    http_response_code(500);
-
-    echo json_encode([
+    jsonResponse([
         'success' => false,
         'message' => 'Unable to open laboratory storage.'
-    ]);
-
-    exit;
+    ], 500);
 }
 
-// --------------------------------------------------
-// 6. Critical section: acquire exclusive lock
-// --------------------------------------------------
-
+// 6. Acquire exclusive lock
 if (!flock($file, LOCK_EX)) {
     fclose($file);
 
-    http_response_code(500);
-
-    echo json_encode([
+    jsonResponse([
         'success' => false,
         'message' => 'Unable to acquire resource lock.'
-    ]);
-
-    exit;
+    ], 500);
 }
 
-// From this point, another request cannot enter
-// this locked section until we release the lock.
+// CRITICAL SECTION STARTS
+// Only one request at a time can access this locked state.
 
+rewind($file);
 $contents = stream_get_contents($file);
-
 $state = json_decode($contents ?: '', true);
 
 if (!is_array($state)) {
@@ -150,10 +94,7 @@ if (!is_array($state)) {
     ];
 }
 
-// --------------------------------------------------
-// 7. Reset experiment
-// --------------------------------------------------
-
+// 7. Reset the experiment
 if ($action === 'reset') {
 
     $state = [
@@ -164,71 +105,51 @@ if ($action === 'reset') {
 
     ftruncate($file, 0);
     rewind($file);
-
     fwrite($file, json_encode($state));
     fflush($file);
 
     flock($file, LOCK_UN);
     fclose($file);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
-        'message' => 'Concurrency laboratory reset successfully.',
+        'message' => 'Lab reset successfully.',
         'state' => $state
     ]);
-
-    exit;
 }
 
-// --------------------------------------------------
-// 8. Resource competition
-// --------------------------------------------------
-
+// 8. Simulate resource competition
 $state['attempts']++;
 
 if ($state['resource_taken'] === false) {
 
-    // First client entering the critical section wins.
+    // The first request inside the critical section wins
     $state['resource_taken'] = true;
     $state['winner'] = $clientId;
 
     $success = true;
-    $message = 'Resource successfully acquired.';
-
+    $message = 'Resource acquired successfully.';
     $httpCode = 200;
 
 } else {
 
-    // Other clients are rejected because the resource
-    // has already been acquired by another client.
-
+    // Resource has already been claimed
     $success = false;
-    $message = 'Resource is already occupied by another client.';
-
+    $message = 'Resource already acquired by another client.';
     $httpCode = 409;
 }
 
-// --------------------------------------------------
-// 9. Save shared state before releasing the lock
-// --------------------------------------------------
-
+// 9. Persist state while lock is still held
 ftruncate($file, 0);
 rewind($file);
-
 fwrite($file, json_encode($state));
 fflush($file);
 
-// --------------------------------------------------
-// 10. Release the lock
-// --------------------------------------------------
-
+// CRITICAL SECTION ENDS
 flock($file, LOCK_UN);
 fclose($file);
 
-// --------------------------------------------------
-// 11. Send the HTTP response
-// --------------------------------------------------
-
+// 10. Send result
 http_response_code($httpCode);
 
 echo json_encode([
