@@ -20,7 +20,9 @@ const adminUi = {
   data: null, // last snapshot loaded from the server
   loadError: '',
   filters: { bookingSearch: '', bookingStatus: 'ALL', passengerSearch: '', tripStatus: 'ALL', paymentStatus: 'ALL' },
-  onSubmit: null
+  onSubmit: null,
+  // Reports from the Flask reports service: idle -> loading -> online | offline
+  reports: { status: 'idle', data: null, message: '', loadedAt: null, responseTimeMs: 0 }
 };
 
 // ---------- helpers ----------
@@ -158,6 +160,8 @@ async function loadAdminData() {
   }
   adminUi.loadError = '';
   adminUi.data = normalizeAdminData(result.data);
+  // Bookings may have changed: fetch fresh reports next time the Reports tab is shown
+  if (adminUi.reports.status !== 'loading') adminUi.reports.status = 'idle';
 }
 
 // Sends one change to the server. Returns an error message, or '' on success.
@@ -784,9 +788,11 @@ function refundPayment(state, ref) {
 
 // ---------- reports ----------
 
-function barList(entries, format) {
+function barList(entries, format, keepZeros = false) {
   const max = Math.max(1, ...entries.map(([, value]) => value));
-  if (!entries.length) return '<p class="toolbar-note">No data yet.</p>';
+  if (!entries.length || (!keepZeros && entries.every(([, value]) => !value))) {
+    return '<p class="toolbar-note">No data yet.</p>';
+  }
   return `<div class="bar-list">${entries.map(([label, value]) => `
     <div class="bar-row">
       <span class="bar-label">${escapeHtml(label)}</span>
@@ -795,7 +801,113 @@ function barList(entries, format) {
     </div>`).join('')}</div>`;
 }
 
+// Reports are worked out by the Python/Flask reports service (services/reports-service),
+// reached through backend/api/reports.php. If the service is not running, the tab
+// falls back to simple figures worked out here in the browser.
+
+async function loadServiceReports() {
+  adminUi.reports.status = 'loading';
+  renderAdmin();
+  const result = await api('reports.php?type=all&days=7');
+  if (result.ok) {
+    Object.assign(adminUi.reports, {
+      status: 'online',
+      data: result.data,
+      message: '',
+      loadedAt: new Date(),
+      responseTimeMs: result.data.responseTimeMs || 0
+    });
+  } else {
+    Object.assign(adminUi.reports, {
+      status: 'offline',
+      data: null,
+      message: result.data.message || 'The reports service could not be reached.'
+    });
+  }
+  renderAdmin();
+}
+
 function renderReports(state) {
+  const reports = adminUi.reports;
+  if (reports.status === 'idle') {
+    // Start loading after this render finishes (rendering must stay synchronous)
+    setTimeout(loadServiceReports, 0);
+    reports.status = 'loading';
+  }
+
+  if (reports.status === 'online' && reports.data) return renderServiceReports(reports);
+
+  const banner = reports.status === 'loading'
+    ? `<div class="report-banner loading">Loading reports from the Flask reports service…</div>`
+    : `<div class="report-banner offline">
+         <div><strong>Reports service offline.</strong> ${escapeHtml(reports.message)}
+         <br /><small>Showing basic figures worked out in the browser instead.</small></div>
+         <button class="secondary-btn" data-action="refresh-reports">Try again</button>
+       </div>`;
+  return banner + renderBrowserReports(state);
+}
+
+function renderServiceReports(reports) {
+  const d = reports.data;
+  const s = d.summary;
+  const time = reports.loadedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const shortDay = (iso) => new Date(`${iso}T00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' });
+
+  const occupancyRows = d.occupancy.routes.map((r) => `
+    <tr>
+      <td>${escapeHtml(r.route)}</td>
+      <td>${r.trips}</td>
+      <td>${r.seats_booked} / ${r.seats_offered}</td>
+      <td>
+        <span class="bar-track occupancy-track"><span class="bar-fill" style="width:${Math.min(100, r.occupancy_percent)}%"></span></span>
+        <strong>${r.occupancy_percent}%</strong>
+      </td>
+    </tr>`).join('') || emptyRow(4, 'No trips in this period.');
+
+  return `
+    <div class="report-banner online">
+      <div><span class="badge success">Live</span>
+        From the Flask reports service · updated ${time} · answered in ${reports.responseTimeMs} ms</div>
+      <button class="secondary-btn" data-action="refresh-reports">Refresh</button>
+    </div>
+
+    <div class="admin-grid stats-grid">
+      <div class="admin-card stat-box"><span class="stat-label">Revenue collected</span><strong>${currency(s.revenue)}</strong></div>
+      <div class="admin-card stat-box"><span class="stat-label">Seats sold</span><strong>${s.seats_sold}</strong></div>
+      <div class="admin-card stat-box"><span class="stat-label">Average booking</span><strong>${currency(s.average_booking_value)}</strong></div>
+      <div class="admin-card stat-box"><span class="stat-label">Cancellation rate</span><strong>${s.cancellation_rate}%</strong></div>
+      <div class="admin-card stat-box"><span class="stat-label">Cash still due</span><strong>${currency(s.cash_due)}</strong></div>
+      <div class="admin-card stat-box"><span class="stat-label">Refunded</span><strong>${currency(s.refunded_amount)}</strong></div>
+    </div>
+
+    <div class="dashboard-columns">
+      <div class="table-card"><h3>Revenue by route</h3>
+        ${barList(d.revenue_by_route.map((r) => [r.route, r.revenue]), currency)}</div>
+      <div class="table-card"><h3>Bookings per day (last ${d.bookings_per_day.days} days)</h3>
+        ${barList(d.bookings_per_day.series.map((p) => [shortDay(p.day), p.bookings]), (n) => n, true)}</div>
+    </div>
+
+    <div class="table-card report-table">
+      <h3>How full are the buses? (trips in the next ${d.occupancy.days} days)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Route</th><th>Trips</th><th>Seats booked</th><th>Occupancy</th></tr></thead>
+          <tbody>${occupancyRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="dashboard-columns">
+      <div class="table-card"><h3>Bookings by payment method</h3>
+        ${barList(d.payment_methods.map((m) => [m.label, m.bookings]), (n) => n)}</div>
+      <div class="table-card"><h3>Seats sold by operator</h3>
+        ${barList(d.operators.map((o) => [o.operator, o.seats_sold]), (n) => n)}</div>
+    </div>
+  `;
+}
+
+// The original browser-side figures, used when the reports service is offline
+function renderBrowserReports(state) {
   const paid = state.bookings.filter(isPaid);
   const confirmed = state.bookings.filter((b) => b.status === 'CONFIRMED');
 
@@ -861,7 +973,8 @@ const ACTIONS = {
   'toggle-passenger': togglePassenger,
   'delete-passenger': deletePassenger,
   'mark-paid': markPaid,
-  refund: refundPayment
+  refund: refundPayment,
+  'refresh-reports': () => loadServiceReports()
 };
 
 function currentSection() {

@@ -807,3 +807,48 @@
 .secondary-btn:hover {
   background: var(--must-navy-light);
 }
+
+/* ---------- Reports tab: data from the Flask reports service ---------- */
+.report-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.report-banner .badge {
+  margin-right: 0.4rem;
+}
+
+.report-banner.online {
+  background: var(--must-green-light);
+  border-color: #a7f3d0;
+}
+
+.report-banner.loading {
+  background: #f1f5f9;
+  color: var(--muted);
+}
+
+.report-banner.offline {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+
+.report-table {
+  margin: 1rem 0;
+}
+
+.occupancy-track {
+  display: inline-block;
+  width: 120px;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}

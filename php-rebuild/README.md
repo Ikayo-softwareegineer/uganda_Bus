@@ -102,6 +102,23 @@ On upgrade, legacy demo accounts and bookings are removed. The bundled sample
 routes, buses, and trips are cleared when the database still matches the original
 demo dataset; other operational data is preserved.
 
+## Reports service (Python + Flask)
+
+The admin's **Reports** tab gets its figures from a separate Flask service in
+`services/reports-service/` (at the repository root). Start it in a second terminal:
+
+```bash
+cd services/reports-service
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python app.py            # http://127.0.0.1:5001
+```
+
+`backend/api/reports.php` forwards the admin's request to it. If the service is not
+running, the Reports tab says so and shows basic figures instead. Full details:
+`services/reports-service/README.md`.
+
 ## Deploy on Render
 
 `render.yaml` deploys the whole app (pages + PHP API) as a Docker web

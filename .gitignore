@@ -24,3 +24,9 @@ build
 *.db-journal
 # Local SQLite database (created by init_db.php)
 php-rebuild/backend/api/data/
+
+# Python (reports service)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
