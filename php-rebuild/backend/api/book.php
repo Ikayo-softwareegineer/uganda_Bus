@@ -90,18 +90,21 @@ if (!in_array($paymentMethod, $allowedPayments)) {
 // seat as free. IMMEDIATE reserves the writer before that read, serializing
 // the availability check and booking insert across PHP workers/connections.
 $pdo->exec('BEGIN IMMEDIATE TRANSACTION');
+// The transaction was started with SQL, so it must also end with SQL (COMMIT / ROLLBACK).
+// PDO's commit()/rollBack() only know about transactions opened with beginTransaction()
+// and would throw "There is no active transaction", losing the change.
 
 $stmt = $pdo->prepare('SELECT * FROM trips WHERE id = :id');
 $stmt->execute([':id' => $tripId]);
 $trip = $stmt->fetch();
 
 if (!$trip || $trip['status'] !== 'SCHEDULED') {
-    $pdo->rollBack();
+    $pdo->exec('ROLLBACK');
     jsonResponse(['success' => false, 'message' => 'This trip is no longer available'], 404);
 }
 
 if ($trip['available_seats'] < count($seats)) {
-    $pdo->rollBack();
+    $pdo->exec('ROLLBACK');
     jsonResponse(['success' => false, 'message' => 'Not enough seats left on this trip'], 400);
 }
 
@@ -113,7 +116,7 @@ foreach ($seatsStmt->fetchAll() as $row) {
 }
 $clash = array_intersect($seats, $taken);
 if ($clash) {
-    $pdo->rollBack();
+    $pdo->exec('ROLLBACK');
     jsonResponse(['success' => false, 'message' => 'Seat(s) ' . implode(', ', $clash) . ' were just booked by someone else. Please choose again.'], 409);
 }
 
@@ -141,7 +144,7 @@ $insert->execute([
 $update = $pdo->prepare('UPDATE trips SET available_seats = available_seats - :count WHERE id = :id');
 $update->execute([':count' => count($seats), ':id' => $tripId]);
 
-$pdo->commit();
+$pdo->exec('COMMIT');
 
 jsonResponse([
     'success' => true,
