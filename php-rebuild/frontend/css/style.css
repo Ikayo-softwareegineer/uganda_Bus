@@ -1361,3 +1361,41 @@ th, td {
   color: var(--muted);
   font-size: 0.85rem;
 }
+/* UG EXPRESS - AUTHENTICATION BUTTONS */
+
+.signin-btn,
+.mobile-signin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    background: #f4b942;
+    color: #101828;
+    border: 1px solid #e4a526;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.signin-btn:hover,
+.mobile-signin-btn:hover {
+    background: #e4a526;
+    box-shadow: 0 5px 15px rgba(244, 185, 66, 0.25);
+    transform: translateY(-1px);
+}
+
+.signin-btn svg,
+.mobile-signin-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2.2;
+}
+
+.mobile-signin-btn {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 12px;
+}
