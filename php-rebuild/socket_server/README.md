@@ -12,7 +12,7 @@ at the station straight away.
 
 - **Transport:** TCP stream socket (`AF_INET`, `SOCK_STREAM`), port **5050**.
 - **Concurrency:** `socket_select()` lets one server process serve many conductors at the same time.
-- **Check-ins** are saved to `bookings.verified_at`, shared with the staff web portal. A ticket boarded through TCP is also shown as used in the website, and vice versa.
+- **Check-ins** are saved in a new table `ticket_checks`, which the server creates itself. No existing table or file is changed.
 
 ## Run (Windows / XAMPP)
 
@@ -22,12 +22,15 @@ From the `uganda_Bus` folder:
 # 1. once: the database must exist
 D:\xampp\php\php.exe php-rebuild\backend\api\init_db.php
 
-# 2. terminal 1 - start the server (Ctrl+C to stop)
-D:\xampp\php\php.exe php-rebuild\socket-server\ticket_server.php
+# 2. terminal 1 - start the server (Ctrl+C to stop); it asks you to set the conductor PIN
+D:\xampp\php\php.exe php-rebuild\socket_server\ticket_server.php
 
-# 3. terminal 2 (or another PC on the same network) - a conductor
-D:\xampp\php\php.exe php-rebuild\socket-server\conductor_client.php 127.0.0.1 5050
+# 3. terminal 2 (or another PC on the same network) - a conductor; it asks for the PIN
+D:\xampp\php\php.exe php-rebuild\socket_server\conductor_client.php 127.0.0.1 5050
 ```
+
+To skip the PIN question, set it first in PowerShell: `$env:TICKET_PIN="4821"`.
+To listen on the station network only, give its IP: `ticket_server.php 5050 192.168.1.10`.
 
 `telnet <server-ip> 5050`, or PuTTY with connection type **Raw**, also work as a client.
 
@@ -41,8 +44,9 @@ One command per line, one reply line per command.
 
 | Command       | What it does                                                                                         |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
+| `LOGIN <pin>` | Logs in as a conductor. Required before `CHECK` and `BOARD`.                                         |
 | `CHECK <ref>` | Looks the ticket up. Changes nothing.                                                                |
-| `BOARD <ref>` | Lets the passenger board and records the check-in. Works **once** per ticket (SQLite write transaction shared with the website). Cancelled tickets are rejected. |
+| `BOARD <ref>` | Lets the passenger board and records the check-in. Works **once** per ticket (database transaction). |
 | `HELP`        | Lists the commands.                                                                                  |
 | `QUIT`        | Disconnects.                                                                                         |
 
@@ -50,6 +54,7 @@ One command per line, one reply line per command.
 
 | Reply       | Meaning                                        |
 | ----------- | ---------------------------------------------- |
+| `OK`        | Logged in                                      |
 | `VALID`     | Real ticket, not used yet                      |
 | `BOARDED`   | Check-in saved, the passenger may board        |
 | `USED`      | Ticket already used, with the time it was used |
@@ -61,6 +66,8 @@ One command per line, one reply line per command.
 Example:
 
 ```
+Conductor PIN: ****
+OK | Logged in. Commands: CHECK <ref>, BOARD <ref>, QUIT
 conductor> CHECK UG-KT-4821-QB
 VALID | UG-KT-4821-QB | John Doe | Kampala -> Jinja | 2026-11-16 23:30 | Bus UBB-1003 | Seats 1A,1B | PAID
 conductor> BOARD UG-KT-4821-QB
@@ -70,3 +77,20 @@ USED | Already boarded at 2026-11-16 19:23:40 | UG-KT-4821-QB | John Doe | ...
 ```
 
 For a "pay at station" booking, the reply ends with `COLLECT CASH UGX ...`.
+
+## Security
+
+| Protection                         | Setting                                          | Stops                                                 |
+| ---------------------------------- | ------------------------------------------------ | ----------------------------------------------------- |
+| PIN login before `CHECK` / `BOARD` | `LOGIN <pin>`                                    | Strangers on the network checking or boarding tickets |
+| Lock-out after wrong PINs          | 3 tries, then disconnected                       | Guessing the PIN                                      |
+| Idle timeout                       | 30 s before login, 2 min after                   | Clients holding connections open forever              |
+| Connection limit                   | 20 conductors at once                            | Flooding the server with connections                  |
+| Guessing limit                     | 5 invalid references in a row, then disconnected | Scripts trying thousands of references                |
+| Line length limit                  | 4 KB                                             | Flooding the server's memory                          |
+| PIN never written to the log       | shown as `LOGIN ****`                            | Leaking the PIN                                       |
+| Prepared SQL statements            | `?` placeholders                                 | SQL injection                                         |
+| Transaction + UNIQUE check-in      | `BOARD`                                          | Using one ticket twice                                |
+
+The settings are constants at the top of `ticket_server.php`.
+Not covered: traffic is plain TCP, not encrypted. Use it on a trusted station network; TLS is future work.

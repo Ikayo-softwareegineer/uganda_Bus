@@ -6,10 +6,11 @@
  * Client side of the ticket check system.
  * Socket flow: socket() -> connect() -> send()/recv() -> close()
  *
- * Run:  D:\xampp\php\php.exe php-rebuild\socket-server\conductor_client.php [server-ip] [port]
+ * Run:  D:\xampp\php\php.exe php-rebuild\socket_server\conductor_client.php [server-ip] [port]
  *       default server-ip 127.0.0.1, port 5050
  *
- * Then type: CHECK UG-KT-4821-QB   or   BOARD UG-KT-4821-QB   or   QUIT
+ * It asks for the conductor PIN first, then you type:
+ *   CHECK UG-KT-4821-QB   or   BOARD UG-KT-4821-QB   or   QUIT
  * (telnet <server-ip> 5050 or PuTTY "Raw" also work as a client.)
  */
 
@@ -32,7 +33,23 @@ if (!@socket_connect($sock, $host, $port)) {
     exit("Cannot connect to $host:$port - is ticket_server.php running?\n");
 }
 
-echo readReply($sock) . "\n";                       // WELCOME line
+$welcome = readReply($sock);                      // WELCOME line (or BYE if the server is full)
+echo $welcome . "\n";
+if ($welcome === null || str_starts_with($welcome, 'BYE')) {
+    socket_close($sock);
+    exit;
+}
+
+// Log in: the server only accepts CHECK / BOARD after a correct PIN.
+echo 'Conductor PIN: ';
+$pin = trim((string)fgets(STDIN));
+socket_write($sock, "LOGIN $pin\n");
+$reply = readReply($sock);
+echo $reply . "\n";
+if ($reply === null || str_starts_with($reply, 'BYE')) {
+    socket_close($sock);
+    exit;
+}
 
 // 3. send() / recv() - one command, one reply
 while (true) {
