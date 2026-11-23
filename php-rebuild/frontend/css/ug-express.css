@@ -667,6 +667,11 @@ button {
   cursor: not-allowed;
   opacity: 0.75;
 }
+/* Keyboard focus ring: shows which seat the arrow keys are on */
+.seat-btn:focus-visible {
+  outline: 3px solid var(--must-gold);
+  outline-offset: 2px;
+}
 .aisle-label {
   font-size: 0.65rem;
   font-family: var(--font-mono);

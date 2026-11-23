@@ -192,6 +192,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (modalCloseBtn) {
     modalCloseBtn.addEventListener('click', closePaymentModal);
   }
+ 
+  // Escape key closes the payment popup
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && paymentModal && paymentModal.classList.contains('open')) {
+      closePaymentModal();
+    }
+  });
+
+  // Clicking the dark background (outside the popup box) also closes it
+  if (paymentModal) {
+    paymentModal.addEventListener('click', (event) => {
+      if (event.target === paymentModal) closePaymentModal();
+    });
+  }
+  
 
   // Payment Method Selection inside Modal
   const modalMethodButtons = document.querySelectorAll('.modal-method-btn');
