@@ -14,7 +14,8 @@ COPY . /var/www/html/
 
 # The SQLite database lives here and must be writable by Apache
 RUN mkdir -p /var/www/html/php-rebuild/backend/api/data \
-    && chown -R www-data:www-data /var/www/html/php-rebuild/backend/api/data
+    && chown -R www-data:www-data /var/www/html/php-rebuild/backend/api/data \
+    && printf 'Require all denied\n' > /var/www/html/php-rebuild/backend/api/data/.htaccess
 
 EXPOSE 80
 

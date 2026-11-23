@@ -3,6 +3,18 @@
 // Safe to run many times: every step checks before it changes anything.
 function initDatabase(PDO $pdo)
 {
+    // Convert legacy staff/customer passwords that may have been stored in plain
+    // text before password_hash() was used.
+    if ($pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'")->fetch()) {
+        $legacyUsers = $pdo->query('SELECT id, password FROM users')->fetchAll();
+        $rehash = $pdo->prepare('UPDATE users SET password = ? WHERE id = ?');
+        foreach ($legacyUsers as $legacyUser) {
+            $password = (string)$legacyUser['password'];
+            if ($password !== '' && !str_starts_with($password, '$2') && !str_starts_with($password, '$argon2')) {
+                $rehash->execute([password_hash($password, PASSWORD_DEFAULT), $legacyUser['id']]);
+            }
+        }
+    }
     $pdo->exec('CREATE TABLE IF NOT EXISTS routes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         origin TEXT NOT NULL,

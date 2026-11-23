@@ -1,0 +1,4 @@
+# Defense in depth when Apache is used instead of a web server config.
+<FilesMatch "\.(db|sqlite|sqlite3|db-journal|db-wal|db-shm)$">
+    Require all denied
+</FilesMatch>

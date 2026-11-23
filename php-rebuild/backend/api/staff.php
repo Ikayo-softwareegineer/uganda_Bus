@@ -1,6 +1,9 @@
 <?php
 require __DIR__ . '/config.php';
 
+// Staff creation and staff-directory listing are administrative operations.
+requireLogin('admin');
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $staff = $pdo->query("SELECT id, name, email, phone, role FROM users WHERE role IN ('staff', 'admin') ORDER BY name ASC")->fetchAll();
     jsonResponse(['success' => true, 'staff' => $staff]);
@@ -29,8 +32,12 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     jsonResponse(['success' => false, 'message' => 'Please provide a valid email address'], 400);
 }
 
-if (!in_array($role, ['staff', 'admin'], true)) {
+if (!in_array($role, ['staff'], true)) {
     $role = 'staff';
+}
+
+if (strlen($password) < 8) {
+    jsonResponse(['success' => false, 'message' => 'Password must be at least 8 characters'], 400);
 }
 
 $exists = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
@@ -40,7 +47,7 @@ if ($exists->fetch()) {
 }
 
 $stmt = $pdo->prepare('INSERT INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)');
-$stmt->execute([$name, $email, $phone, $password, $role]);
+$stmt->execute([$name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), $role]);
 
 jsonResponse([
     'success' => true,
