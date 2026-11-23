@@ -3,6 +3,7 @@
 //   GET  -> everything the dashboard shows (routes, buses, trips, bookings, passengers)
 //   POST -> one change, e.g. {"action": "saveTrip", ...}
 require __DIR__ . '/config.php';
+require __DIR__ . '/notification_queue.php';
 
 requireLogin('admin');
 
@@ -248,6 +249,11 @@ switch ($action) {
         $booking = findRow('bookings', 'booking_ref', $ref) ?: fail('Booking not found.', 404);
         if ($booking['status'] !== 'CONFIRMED') fail('This booking is already cancelled.');
         releaseBooking($booking);
+        enqueueNotification($pdo, $ref, $booking['email'], $booking['user_name'], 'EMAIL', 'BOOKING_CANCELLED', [
+            'subject' => 'Your Uganda Bus booking was cancelled',
+            'refundStarted' => $booking['payment_status'] === 'PAID',
+            'message' => "Booking $ref was cancelled by the administrator.",
+        ]);
         ok($booking['payment_status'] === 'PAID' ? "Booking $ref cancelled. Refund it from Payments." : "Booking $ref cancelled.");
 
     case 'deleteBooking':
@@ -260,6 +266,11 @@ switch ($action) {
         $booking = findRow('bookings', 'booking_ref', $ref) ?: fail('Booking not found.', 404);
         if ($booking['payment_status'] !== 'PAY_AT_STATION' || $booking['status'] !== 'CONFIRMED') fail('This booking has no pending payment.');
         $pdo->prepare("UPDATE bookings SET payment_status = 'PAID', paid_at = ? WHERE id = ?")->execute([gmdate('Y-m-d H:i:s'), $booking['id']]);
+        enqueueNotification($pdo, $ref, $booking['email'], $booking['user_name'], 'EMAIL', 'PAYMENT_CONFIRMED', [
+            'subject' => 'Payment received for your Uganda Bus booking',
+            'amount' => (int)$booking['total_amount'],
+            'message' => "Payment for booking $ref has been confirmed.",
+        ]);
         ok("Payment for $ref recorded.");
 
     case 'refund':
@@ -269,6 +280,12 @@ switch ($action) {
         if ($booking['status'] === 'CONFIRMED') {
             releaseBooking($booking);
         }
+        enqueueNotification($pdo, $ref, $booking['email'], $booking['user_name'], 'EMAIL', 'REFUND_RECORDED', [
+            'subject' => 'Refund recorded for your Uganda Bus booking',
+            'amount' => (int)$booking['total_amount'],
+            'seatsReleased' => $booking['status'] === 'CONFIRMED' ? countSeats($booking['seats']) : 0,
+            'message' => "The refund for booking $ref has been recorded.",
+        ]);
         ok("Refund for $ref recorded.");
 
     // ---------- passengers ----------

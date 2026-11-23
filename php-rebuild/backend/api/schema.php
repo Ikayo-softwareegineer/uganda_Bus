@@ -79,6 +79,25 @@ function initDatabase(PDO $pdo)
         value INTEGER NOT NULL
     );');
 
+    // Message queue: these rows are produced by booking operations and consumed
+    // by notification_worker.php. Keeping jobs in SQLite makes delivery
+    // observable and does not lose notifications if the worker is stopped.
+    $pdo->exec('CREATE TABLE IF NOT EXISTS notification_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_ref TEXT,
+        recipient TEXT NOT NULL,
+        recipient_name TEXT,
+        channel TEXT NOT NULL,
+        notification_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT "PENDING",
+        attempts INTEGER NOT NULL DEFAULT 0,
+        available_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        processed_at TEXT,
+        last_error TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );');
+
     // Admin account row, so the admin session has a user id.
     // The login is checked against the configured administrator credentials.
     $insertAdmin = $pdo->prepare('INSERT OR IGNORE INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)');

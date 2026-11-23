@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/config.php';
+require __DIR__ . '/notification_queue.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
@@ -143,6 +144,17 @@ $insert->execute([
 
 $update = $pdo->prepare('UPDATE trips SET available_seats = available_seats - :count WHERE id = :id');
 $update->execute([':count' => count($seats), ':id' => $tripId]);
+
+// Queue the notification inside the same transaction as the booking. If the
+// database commit succeeds, the notification is committed too.
+enqueueNotification($pdo, $bookingRef, $email, $customerName, 'EMAIL', 'BOOKING_CONFIRMED', [
+    'subject' => 'Your Uganda Bus ticket is confirmed',
+    'tripId' => $tripId,
+    'seats' => $seats,
+    'totalAmount' => $total,
+    'paymentMethod' => $paymentMethod,
+    'message' => "Booking $bookingRef is confirmed.",
+]);
 
 $pdo->exec('COMMIT');
 
