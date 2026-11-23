@@ -9,7 +9,23 @@ const ADMIN_EMAIL = 'admin@ugbus.com';
 define('ADMIN_PASSWORD', getenv('ADMIN_PASSWORD') ?: '');
 
 // Bump this when schema.php changes so existing databases are upgraded
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
+
+// Return security headers on every API response.
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+// PHP's development server ignores Apache .htaccess rules. Reject database
+// files explicitly as an extra protection against direct URL access.
+$requestPath = str_replace('\\', '/', parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
+if (preg_match('#/backend/api/data/[^/?]+\.(?:sqlite3?|db|db-journal|db-wal|db-shm)$#i', $requestPath)) {
+    http_response_code(404);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Not found']);
+    exit;
+}
 
 function jsonResponse($data, $status = 200)
 {
@@ -55,6 +71,13 @@ if ($schemaVersion < SCHEMA_VERSION) {
 }
 // Sessions remember who is logged in between requests
 if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 

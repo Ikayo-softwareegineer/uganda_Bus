@@ -57,6 +57,16 @@ stored in the repository. Admin login is unavailable until it is configured.
 The admin dashboard (`frontend/pages/admin.html`) manages bookings,
 passengers, trips, buses, routes and payments, and shows reports.
 
+## Security
+
+- Staff creation and staff-directory APIs require an administrator session.
+- Staff passwords use PHP `password_hash()` and legacy plaintext passwords are
+  rehashed automatically when the database schema is upgraded.
+- Login attempts are limited to five failures per 15-minute session window.
+- PHP sessions use HTTP-only, SameSite=Lax cookies and secure cookies over HTTPS.
+- API responses send anti-framing and content-sniffing headers.
+- Apache/Docker blocks requests for SQLite files and database journal files.
+
 From **Passengers**, the admin can add and manage member and staff accounts.
 Members can also register from the sign-in page.
 
