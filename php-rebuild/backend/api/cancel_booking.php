@@ -19,6 +19,9 @@ if ($ref === '') {
 // Serialize cancellation with bookings so a released seat cannot race a new
 // reservation while availability is being updated.
 $pdo->exec('BEGIN IMMEDIATE TRANSACTION');
+// The transaction was started with SQL, so it must also end with SQL (COMMIT / ROLLBACK).
+// PDO's commit()/rollBack() only know about transactions opened with beginTransaction()
+// and would throw "There is no active transaction", losing the change.
 
 $stmt = $pdo->prepare('
     SELECT b.*, t.departure_time
@@ -32,7 +35,7 @@ $booking = $stmt->fetch();
 function cancelFail($message, $status)
 {
     global $pdo;
-    $pdo->rollBack();
+    $pdo->exec('ROLLBACK');
     jsonResponse(['success' => false, 'message' => $message], $status);
 }
 
@@ -61,7 +64,7 @@ if ($wasPaid) {
 $pdo->prepare('UPDATE trips SET available_seats = available_seats + ? WHERE id = ?')
     ->execute([$seatCount, $booking['trip_id']]);
 
-$pdo->commit();
+$pdo->exec('COMMIT');
 
 jsonResponse([
     'success' => true,
