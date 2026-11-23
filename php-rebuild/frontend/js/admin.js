@@ -207,6 +207,12 @@ function initModal() {
   modal.addEventListener('click', (event) => {
     if (event.target === modal) closeModal();
   });
+    // Escape: the browser fires "cancel" on a <dialog>. Close it through closeModal()
+  // so the pending submit handler is cleared too, exactly like the Cancel button.
+  modal.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeModal();
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

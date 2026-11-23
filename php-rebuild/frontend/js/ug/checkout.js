@@ -192,6 +192,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (modalCloseBtn) {
     modalCloseBtn.addEventListener('click', closePaymentModal);
   }
+    if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', closePaymentModal);
+  }
 
   // Payment Method Selection inside Modal
   const modalMethodButtons = document.querySelectorAll('.modal-method-btn');
