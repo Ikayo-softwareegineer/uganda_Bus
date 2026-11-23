@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -r
 ENV TZ=Africa/Kampala
 RUN echo "date.timezone=Africa/Kampala" > /usr/local/etc/php/conf.d/timezone.ini
 
+# sockets + pcntl: needed by the conductor ticket servers in php-rebuild/socket_server
+# (pcntl gives fork() to ticket_server_fork.php; Linux only, so it works in this image)
+RUN docker-php-ext-install sockets pcntl
+
 COPY . /var/www/html/
 
 # The SQLite database lives here and must be writable by Apache
