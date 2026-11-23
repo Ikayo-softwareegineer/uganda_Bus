@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports service | Uganda Bus</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; color: #0f172a; }
+      h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+      .muted { color: #475569; }
+      .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+      .ok { background: #dcfce7; color: #166534; }
+      .bad { background: #fee2e2; color: #991b1b; }
+      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+      code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Uganda Bus · Reports service</h1>
+    <p class="muted">Python + Flask service that works out reports for the admin dashboard. It reads the bus database and never changes it.</p>
+
+    <p>
+      Database:
+      {% if db_found %}
+        <span class="status ok">found</span>
+      {% else %}
+        <span class="status bad">missing</span>
+      {% endif %}
+      <br /><small class="muted">{{ db_path }}</small>
+    </p>
+    <p>Connection pool size: <strong>{{ pool_size }}</strong></p>
+
+    <h2>Endpoints</h2>
+    <p class="muted">Report endpoints need the <code>X-Service-Key</code> header, so only the PHP backend can call them.</p>
+    <table>
+      <tr><th>Endpoint</th><th>What it returns</th></tr>
+      <tr><td><code>GET /health</code></td><td>Is the service up and is the database found (no key needed)</td></tr>
+      <tr><td><code>GET /reports/summary</code></td><td>Bookings, revenue, seats sold, cancellation rate, cash still due</td></tr>
+      <tr><td><code>GET /reports/revenue-by-route</code></td><td>Paid revenue per route</td></tr>
+      <tr><td><code>GET /reports/occupancy?days=7</code></td><td>How full upcoming trips are, per route</td></tr>
+      <tr><td><code>GET /reports/bookings-per-day?days=14</code></td><td>Bookings and revenue for each recent day</td></tr>
+      <tr><td><code>GET /reports/payment-methods</code></td><td>Bookings per payment method</td></tr>
+      <tr><td><code>GET /reports/operators</code></td><td>Seats sold and revenue per bus operator</td></tr>
+      <tr><td><code>GET /reports/all</code></td><td>Everything above in one response (used by the admin page)</td></tr>
+    </table>
+  </body>
+</html>
