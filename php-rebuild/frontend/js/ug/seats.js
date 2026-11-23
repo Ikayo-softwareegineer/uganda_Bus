@@ -127,16 +127,78 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     seatGridEl.innerHTML = html;
 
-    // Attach click events
-    seatGridEl.querySelectorAll('.seat-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const seatId = btn.dataset.seatId;
-        const seat = seats.find((s) => s.id === seatId);
-        if (seat && (seat.isAvailable !== false)) {
-          toggleSeat(seat);
-        }
-      });
+    // Redrawing replaces the buttons, so put keyboard focus back on the seat the user was on.
+    if (focusSeatId) {
+      const seatBtn = seatGridEl.querySelector(`[data-seat-id="${focusSeatId}"]`);
+      if (seatBtn) seatBtn.focus();
+      focusSeatId = null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // EVENT LISTENERS for the seat map (mouse, keyboard and Escape)
+  // ---------------------------------------------------------------------------
+  let focusSeatId = null;   // seat to re-focus after the map is redrawn
+
+  // 1. CLICK - event delegation: ONE listener on the grid handles every seat button,
+  //    even after the buttons are redrawn. Enter and Space on a focused seat button
+  //    also fire this click event (built-in button behaviour), so keyboard users can select too.
+  if (seatGridEl) {
+    seatGridEl.addEventListener('click', (event) => {
+      const btn = event.target.closest('.seat-btn');
+      if (!btn || btn.disabled) return;                 // ignore gaps and booked seats
+      const seat = seats.find((s) => s.id === btn.dataset.seatId);
+      if (seat && seat.isAvailable !== false) {
+        focusSeatId = seat.id;
+        toggleSeat(seat);
+      }
     });
+
+    // 2. KEYDOWN - arrow keys move between seats like on a real seat map.
+    seatGridEl.addEventListener('keydown', (event) => {
+      const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+      const move = moves[event.key];
+      const btn = event.target.closest('.seat-btn');
+      if (!move || !btn) return;
+
+      event.preventDefault();                           // stop the page from scrolling
+      const current = seats.find((s) => s.id === btn.dataset.seatId);
+      const next = current && findNextSeat(current, move[0], move[1]);
+      if (next) {
+        const nextBtn = seatGridEl.querySelector(`[data-seat-id="${next.id}"]`);
+        if (nextBtn) nextBtn.focus();
+      }
+    });
+  }
+
+  // 3. ESCAPE - clears every selected seat (anywhere on the page).
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || selectedSeats.length === 0) return;
+    const active = document.activeElement;
+    if (active && active.classList && active.classList.contains('seat-btn')) {
+      focusSeatId = active.dataset.seatId;              // stay on the same seat after redrawing
+    }
+    clearSelection();
+  });
+
+  /** Next free seat in a direction, skipping booked seats; null at the edge of the bus. */
+  function findNextSeat(seat, rowStep, colStep) {
+    let row = Number(seat.seatRow) + rowStep;
+    let col = Number(seat.seatCol) + colStep;
+    while (true) {
+      const next = seats.find((s) => Number(s.seatRow) === row && Number(s.seatCol) === col);
+      if (!next) return null;
+      if (next.isAvailable !== false) return next;
+      row += rowStep;
+      col += colStep;
+    }
+  }
+
+  function clearSelection() {
+    selectedSeats = [];
+    if (maxSeatsWarning) maxSeatsWarning.style.display = 'none';
+    renderSeatMap();
+    updateFareSummary();
   }
 
   function renderSeatButton(seat) {
@@ -152,6 +214,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         type="button"
         class="seat-btn ${stateClass}"
         data-seat-id="${seat.id}"
+        aria-pressed="${isSelected}"
+        aria-label="Seat ${seat.seatNumber}, ${isOccupied ? 'booked' : isSelected ? 'selected' : 'available'}"
         ${isOccupied ? 'disabled' : ''}
         title="Seat ${seat.seatNumber} ${isOccupied ? '(Booked)' : '(Available)'}"
       >
