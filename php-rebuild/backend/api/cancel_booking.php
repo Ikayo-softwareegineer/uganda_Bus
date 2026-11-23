@@ -3,6 +3,7 @@
 //   POST {"ref": "UG-AB-1234-CD"}
 // Seats go back on sale. A paid booking is marked REFUNDED (the refund itself is simulated).
 require __DIR__ . '/config.php';
+require __DIR__ . '/notification_queue.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
@@ -63,6 +64,13 @@ if ($wasPaid) {
 }
 $pdo->prepare('UPDATE trips SET available_seats = available_seats + ? WHERE id = ?')
     ->execute([$seatCount, $booking['trip_id']]);
+
+enqueueNotification($pdo, $ref, $booking['email'], $booking['user_name'], 'EMAIL', 'BOOKING_CANCELLED', [
+    'subject' => 'Your Uganda Bus booking was cancelled',
+    'seatsReleased' => $seatCount,
+    'refundStarted' => $wasPaid,
+    'message' => "Booking $ref was cancelled.",
+]);
 
 $pdo->exec('COMMIT');
 

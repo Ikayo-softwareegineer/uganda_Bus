@@ -60,6 +60,26 @@ passengers, trips, buses, routes and payments, and shows reports.
 From **Passengers**, the admin can add and manage member and staff accounts.
 Members can also register from the sign-in page.
 
+## Booking notification queue
+
+Confirmed bookings and cancellations enqueue email jobs in
+`backend/api/data/bus_system.sqlite`. A separate PHP worker processes those jobs
+and writes the generated notifications to `php-rebuild/notifications/`.
+
+```powershell
+# Process all currently available jobs once
+php notification_worker.php --once
+
+# Keep polling every two seconds
+php notification_worker.php
+```
+
+Run the command from the `php-rebuild` folder. For an admin to process pending
+jobs and view queue status, call `backend/api/notifications.php`:
+
+- `GET` requires an admin session and shows pending/sent/failed totals
+- `POST {"action":"process"}` processes up to 20 queued notifications
+
 ## How the frontend is organised
 
 The pages use the UG Express design. Everything is plain HTML, CSS and JavaScript,
